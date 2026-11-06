@@ -104,7 +104,6 @@
   <h1>GB Jewelry Co. <span>Inventory</span></h1>
   <nav id="nav">
     <button data-tab="inventory" class="active">Inventory</button>
-    <button data-tab="ship">Ship Orders</button>
     <button data-tab="history">History</button>
     <button data-tab="backup">Backup &amp; Settings</button>
   </nav>
@@ -159,58 +158,6 @@
     </div>
   </section>
 
-  <!-- SHIP -->
-  <section id="tab-ship" class="hidden">
-    <div class="card">
-      <h2>Ship yesterday's orders</h2>
-      <p class="muted small" style="margin-top:-6px">Add each item you're shipping. Nothing is subtracted until you press <b>Ship &amp; subtract</b>.</p>
-      <div class="toolbar">
-        <label class="f">Orders from
-          <input type="date" id="shipDate" onchange="saveDraftMeta()">
-        </label>
-      </div>
-      <div class="shipline">
-        <label class="f">Item (type SKU or name)
-          <input id="shipItem" list="itemList" placeholder="e.g. ER-OV-150 or Oval solitaire" autocomplete="off">
-        </label>
-        <label class="f">Qty
-          <input id="shipQty" type="number" min="1" value="1">
-        </label>
-        <label class="f">Order # (optional)
-          <input id="shipOrder" placeholder="e.g. 3381">
-        </label>
-        <label class="f">Sold on
-          <select id="shipChannel"></select>
-        </label>
-        <button class="btn gold" onclick="addShipLine()">Add</button>
-      </div>
-      <datalist id="itemList"></datalist>
-      <div class="err" id="shipErr"></div>
-
-      <div class="scroll">
-        <table>
-          <thead><tr>
-            <th>SKU</th><th>Item</th><th class="num">Ship qty</th><th class="num">In stock</th><th class="num">After</th><th class="hide-sm">Order #</th><th class="hide-sm">Sold on</th><th></th>
-          </tr></thead>
-          <tbody id="draftBody"></tbody>
-        </table>
-      </div>
-      <div class="toolbar" style="justify-content:flex-end;margin-top:14px;margin-bottom:0">
-        <span class="muted small" id="draftSummary"></span>
-        <button class="btn danger" onclick="clearDraft()">Clear list</button>
-        <button class="btn primary" id="shipBtn" onclick="commitShip()">Ship &amp; subtract</button>
-      </div>
-    </div>
-
-    <div class="card">
-      <h2>Recent shipments</h2>
-      <div class="scroll"><table>
-        <thead><tr><th>Orders from</th><th>Shipped</th><th class="num">Items</th><th class="num">Units</th><th></th></tr></thead>
-        <tbody id="batchBody"></tbody>
-      </table></div>
-    </div>
-  </section>
-
   <!-- HISTORY -->
   <section id="tab-history" class="hidden">
     <div class="card">
@@ -218,7 +165,7 @@
         <input class="grow" id="hSearch" placeholder="Search SKU, item, order #…" oninput="renderHistory()">
         <select id="hType" onchange="renderHistory()">
           <option value="">All changes</option>
-          <option value="ship">Shipped</option>
+          <option value="ship">Sold</option>
           <option value="restock">Restocked</option>
           <option value="adjust">Count adjusted</option>
           <option value="add">Item added</option>
@@ -578,8 +525,7 @@ function logEntry(o){ state.log.unshift(Object.assign({id:uid(), ts:Date.now()},
 document.querySelectorAll('#nav button').forEach(b=>b.onclick=()=>showTab(b.dataset.tab));
 function showTab(t){
   document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active', b.dataset.tab===t));
-  ['inventory','ship','history','backup'].forEach(x=>$('tab-'+x).classList.toggle('hidden', x!==t));
-  if(t==='ship') setTimeout(()=>$('shipItem').focus(),30);
+  ['inventory','history','backup'].forEach(x=>$('tab-'+x).classList.toggle('hidden', x!==t));
   renderAll();
 }
 
@@ -602,7 +548,7 @@ function renderStats(){
     <div class="stat ${low?'warn':''}"><div class="lbl">Low / out of stock</div><div class="val">${low}</div></div>
     <div class="stat"><div class="lbl">Stock value (cost)</div><div class="val">${money(cost)}</div></div>
     <div class="stat"><div class="lbl">Stock value (retail)</div><div class="val">${money(retail)}</div></div>
-    <div class="stat"><div class="lbl">Shipped today</div><div class="val">${shippedToday}</div></div>`;
+    <div class="stat"><div class="lbl">Sold today</div><div class="val">${shippedToday}</div></div>`;
 }
 function renderCatFilter(){
   const sel=$('catFilter'), cur=sel.value;
@@ -648,6 +594,7 @@ function renderInventory(){
       <td class="hide-sm">${pill}</td>
       <td class="num hide-sm">${money(i.price)}</td>
       <td><div class="actions">
+        <button class="btn sm" onclick="openStockModal('${i.id}','sold')" ${i.qty<=0?'disabled':''}>− Sold</button>
         <button class="btn sm" onclick="openStockModal('${i.id}','restock')">+ Stock</button>
         <button class="btn sm" onclick="openStockModal('${i.id}','adjust')">Set count</button>
         <button class="btn sm" onclick="openItemModal('${i.id}')">Edit</button>
@@ -725,144 +672,40 @@ function deleteItem(id){
 }
 function openStockModal(id,mode){
   const it=itemById(id);
-  openModal(`<h3>${mode==='restock'?'Add stock':'Set stock count'}</h3>
+  const T={restock:['Add stock','Units to add','Add stock','e.g. from supplier, invoice #',1],
+           adjust:['Set stock count','Actual count on hand','Save count','e.g. monthly count',it.qty],
+           sold:['Remove sold units','Units sold','Remove from stock','optional',1]}[mode];
+  const chans=state.settings.channels.map(c=>`<option>${esc(c)}</option>`).join('');
+  openModal(`<h3>${T[0]}</h3>
     <p class="muted" style="margin-top:-6px">${esc(it.sku)} — ${esc(it.name)} · currently <b>${it.qty}</b> in stock</p>
     <div class="grid2">
-      <label class="f">${mode==='restock'?'Units to add':'Actual count on hand'}<input id="sQty" type="number" min="0" value="${mode==='restock'?1:it.qty}"></label>
-      <label class="f">Note (optional)<input id="sNote" placeholder="${mode==='restock'?'e.g. from supplier, invoice #':'e.g. monthly count'}"></label>
+      <label class="f">${T[1]}<input id="sQty" type="number" min="${mode==='adjust'?0:1}" ${mode==='sold'?`max="${it.qty}"`:''} value="${T[4]}"></label>
+      ${mode==='sold'
+        ? `<label class="f">Sold on<select id="sChan">${chans}</select></label>`
+        : `<label class="f">Note (optional)<input id="sNote" placeholder="${T[3]}"></label>`}
     </div>
+    ${mode==='sold'?`<label class="f" style="margin-top:12px">Order # (optional)<input id="sOrder"></label>`:''}
     <div class="err" id="sErr"></div>
     <div class="foot"><button class="btn" onclick="closeModal()">Cancel</button>
-    <button class="btn primary" onclick="applyStock('${id}','${mode}')">${mode==='restock'?'Add stock':'Save count'}</button></div>`);
+    <button class="btn primary" onclick="applyStock('${id}','${mode}')">${T[2]}</button></div>`);
   $('sQty').addEventListener('keydown',e=>{ if(e.key==='Enter') applyStock(id,mode); });
+  setTimeout(()=>$('sQty').select(),40);
 }
 function applyStock(id,mode){
-  const it=itemById(id), v=intv($('sQty').value);
-  if(v<0||$('sQty').value===''){ $('sErr').textContent='Enter a number 0 or more.'; return; }
-  const delta = mode==='restock' ? v : v-it.qty;
-  if(mode==='restock'&&v===0){ $('sErr').textContent='Enter how many units to add.'; return; }
+  const it=itemById(id), raw=$('sQty').value, v=intv(raw);
+  if(raw===''||v<0){ $('sErr').textContent='Enter a number 0 or more.'; return; }
+  if(mode!=='adjust'&&v===0){ $('sErr').textContent='Enter how many units.'; return; }
+  if(mode==='sold'&&v>it.qty){ $('sErr').textContent=`Only ${it.qty} in stock. Use Set count if the number is wrong.`; return; }
+  const delta = mode==='restock' ? v : mode==='sold' ? -v : v-it.qty;
   it.qty += delta;
-  logEntry({type:mode,itemId:id,sku:it.sku,name:it.name,delta,qtyAfter:it.qty,note:$('sNote').value.trim()});
-  save(); closeModal(); renderAll(); toast(mode==='restock'?`Added ${v} — now ${it.qty} in stock`:`Count set to ${it.qty}`);
-}
-
-/* ---------- ship ---------- */
-function renderChannels(){
-  const sel=$('shipChannel'), cur=sel.value;
-  sel.innerHTML=state.settings.channels.map(c=>`<option>${esc(c)}</option>`).join('');
-  if(state.settings.channels.includes(cur)) sel.value=cur;
-}
-function renderItemList(){
-  $('itemList').innerHTML=state.items.slice().sort((a,b)=>a.sku.localeCompare(b.sku,undefined,{numeric:true}))
-    .map(i=>`<option value="${esc(i.sku)} — ${esc(i.name)}">${i.qty} in stock</option>`).join('');
-}
-function findItem(text){
-  const t=text.trim().toLowerCase(); if(!t) return null;
-  const skuPart=t.split(' — ')[0].trim();
-  return state.items.find(i=>i.sku.toLowerCase()===skuPart)
-      || state.items.find(i=>i.sku.toLowerCase()===t)
-      || (()=>{ const m=state.items.filter(i=>i.name.toLowerCase()===t); return m.length===1?m[0]:null; })()
-      || (()=>{ const m=state.items.filter(i=>(i.sku+' '+i.name).toLowerCase().includes(t)); return m.length===1?m[0]:null; })();
-}
-function draftQtyFor(itemId, exceptIdx){ return state.draft.reduce((s,d,i)=>s+(d.itemId===itemId&&i!==exceptIdx?d.qty:0),0); }
-function addShipLine(){
-  $('shipErr').textContent='';
-  const it=findItem($('shipItem').value);
-  if(!it){ $('shipErr').textContent=$('shipItem').value.trim()?'No single item matches that. Pick one from the list or type the exact SKU.':'Type a SKU or item name.'; $('shipItem').focus(); return; }
-  const q=intv($('shipQty').value);
-  if(q<1){ $('shipErr').textContent='Quantity must be at least 1.'; return; }
-  const already=draftQtyFor(it.id);
-  if(already+q>it.qty){ $('shipErr').textContent=`Only ${it.qty} of ${it.sku} in stock${already?` (${already} already on this list)`:''}. Add stock first if the count is wrong.`; return; }
-  state.draft.push({itemId:it.id,qty:q,orderNo:$('shipOrder').value.trim(),channel:$('shipChannel').value});
-  save();
-  $('shipItem').value=''; $('shipQty').value=1; $('shipOrder').value='';
-  $('shipItem').focus();
-  renderShip();
-}
-function removeDraft(i){ state.draft.splice(i,1); save(); renderShip(); }
-function clearDraft(){ if(!state.draft.length) return; confirmModal('Clear list?','Remove all lines from this shipping list? Nothing has been subtracted yet.','Clear',()=>{ state.draft=[]; save(); renderShip(); },true); }
-function saveDraftMeta(){ state.draftDate=$('shipDate').value; save(); }
-function renderShip(){
-  renderChannels(); renderItemList();
-  if(!$('shipDate').value) $('shipDate').value = state.draftDate || yesterday();
-  state.draft=state.draft.filter(d=>itemById(d.itemId));
-  if(!state.draft.length){
-    $('draftBody').innerHTML=`<tr><td colspan="8" class="empty">No items on the list yet.</td></tr>`;
-    $('draftSummary').textContent=''; $('shipBtn').disabled=true;
-  }else{
-    const running={};
-    $('draftBody').innerHTML=state.draft.map((d,i)=>{
-      const it=itemById(d.itemId);
-      running[it.id]=(running[it.id]||0)+d.qty;
-      const after=it.qty-running[it.id];
-      return `<tr><td><b>${esc(it.sku)}</b></td><td>${esc(it.name)}</td><td class="num qty">${d.qty}</td><td class="num">${it.qty}</td>
-        <td class="num" style="color:${after<0?'var(--red)':after<=lowOf(it)?'#a0601a':'inherit'}">${after}</td>
-        <td class="hide-sm">${esc(d.orderNo)}</td><td class="hide-sm">${esc(d.channel)}</td>
-        <td class="num"><button class="btn sm danger" onclick="removeDraft(${i})">Remove</button></td></tr>`;
-    }).join('');
-    const units=state.draft.reduce((s,d)=>s+d.qty,0);
-    $('draftSummary').textContent=`${state.draft.length} line${state.draft.length>1?'s':''} · ${units} unit${units>1?'s':''}`;
-    $('shipBtn').disabled=false;
-  }
-  renderBatches();
-}
-function commitShip(){
-  if(!state.draft.length) return;
-  const totals={};
-  state.draft.forEach(d=>totals[d.itemId]=(totals[d.itemId]||0)+d.qty);
-  const short=Object.entries(totals).filter(([id,q])=>q>itemById(id).qty);
-  if(short.length){ $('shipErr').textContent='Not enough stock for: '+short.map(([id])=>itemById(id).sku).join(', '); return; }
-  const date=$('shipDate').value||yesterday();
-  const units=state.draft.reduce((s,d)=>s+d.qty,0);
-  confirmModal('Ship & subtract?',`Subtract <b>${units}</b> unit${units>1?'s':''} for orders from <b>${fmtDate(date)}</b>?`,'Ship & subtract',()=>{
-    const batchId=uid(), ts=Date.now();
-    state.draft.forEach(d=>{
-      const it=itemById(d.itemId); it.qty-=d.qty;
-      state.log.unshift({id:uid(),ts,type:'ship',itemId:it.id,sku:it.sku,name:it.name,delta:-d.qty,qtyAfter:it.qty,orderNo:d.orderNo,channel:d.channel,orderDate:date,batchId});
-    });
-    state.draft=[]; state.draftDate='';
-    save(); $('shipDate').value=yesterday(); renderAll();
-    const lows=Object.keys(totals).map(itemById).filter(i=>status(i)!=='ok');
-    toast(`Shipped ${units} unit${units>1?'s':''}`+(lows.length?` · ${lows.length} item${lows.length>1?'s':''} now low`:''));
-  });
-}
-function renderBatches(){
-  const b={};
-  state.log.filter(l=>l.type==='ship'&&l.batchId).forEach(l=>{
-    (b[l.batchId]=b[l.batchId]||{id:l.batchId,ts:l.ts,date:l.orderDate,lines:[],undone:true}).lines.push(l);
-    if(!l.undone) b[l.batchId].undone=false;
-  });
-  const list=Object.values(b).sort((x,y)=>y.ts-x.ts).slice(0,15);
-  if(!list.length){ $('batchBody').innerHTML=`<tr><td colspan="5" class="empty">No shipments yet.</td></tr>`; return; }
-  $('batchBody').innerHTML=list.map(x=>{
-    const live=x.lines.filter(l=>!l.undone);
-    const units=live.reduce((s,l)=>s-l.delta,0);
-    return `<tr class="${x.undone?'strike':''}"><td>${fmtDate(x.date)}</td><td class="muted small">${fmtTs(x.ts)}</td><td class="num">${live.length}</td><td class="num">${units}</td>
-      <td class="num">${x.undone?'<span class="muted small">Undone</span>':`<button class="btn sm" onclick="viewBatch('${x.id}')">View</button> <button class="btn sm danger" onclick="undoBatch('${x.id}')">Undo</button>`}</td></tr>`;
-  }).join('');
-}
-function viewBatch(bid){
-  const lines=state.log.filter(l=>l.batchId===bid);
-  openModal(`<h3>Shipment — orders from ${fmtDate(lines[0].orderDate)}</h3>
-    <div class="scroll"><table><thead><tr><th>SKU</th><th>Item</th><th class="num">Qty</th><th>Order #</th><th>Sold on</th></tr></thead><tbody>
-    ${lines.map(l=>`<tr class="${l.undone?'strike':''}"><td>${esc(l.sku)}</td><td>${esc(l.name)}</td><td class="num">${-l.delta}</td><td>${esc(l.orderNo)}</td><td>${esc(l.channel)}</td></tr>`).join('')}
-    </tbody></table></div><div class="foot"><button class="btn primary" onclick="closeModal()">Close</button></div>`);
-}
-function undoBatch(bid){
-  const lines=state.log.filter(l=>l.batchId===bid&&!l.undone);
-  const units=lines.reduce((s,l)=>s-l.delta,0);
-  confirmModal('Undo shipment?',`Put <b>${units}</b> unit${units>1?'s':''} back into stock?`,'Undo shipment',()=>{
-    lines.forEach(l=>{
-      l.undone=true;
-      const it=itemById(l.itemId);
-      if(it){ it.qty-=l.delta; logEntry({type:'undo',itemId:it.id,sku:it.sku,name:it.name,delta:-l.delta,qtyAfter:it.qty,note:`Undid shipment${l.orderNo?' (order '+l.orderNo+')':''}`}); }
-    });
-    save(); renderAll(); toast('Shipment undone — stock restored');
-  },true);
+  if(mode==='sold') logEntry({type:'ship',itemId:id,sku:it.sku,name:it.name,delta,qtyAfter:it.qty,orderNo:$('sOrder').value.trim(),channel:$('sChan').value,orderDate:localDate(new Date())});
+  else logEntry({type:mode,itemId:id,sku:it.sku,name:it.name,delta,qtyAfter:it.qty,note:$('sNote').value.trim()});
+  save(); closeModal(); renderAll();
+  toast(mode==='restock'?`Added ${v} — now ${it.qty} in stock`:mode==='sold'?`Removed ${v} — ${it.qty} left`+(status(it)!=='ok'?' (low)':''):`Count set to ${it.qty}`);
 }
 
 /* ---------- history ---------- */
-const TYPE_LBL={ship:'Shipped',restock:'Restocked',adjust:'Count set',add:'Item added',delete:'Deleted',undo:'Undone'};
+const TYPE_LBL={ship:'Sold',restock:'Restocked',adjust:'Count set',add:'Item added',delete:'Deleted',undo:'Undone'};
 function filteredHistory(){
   const q=$('hSearch').value.trim().toLowerCase(), t=$('hType').value, f=$('hFrom').value, to=$('hTo').value;
   return state.log.filter(l=>{
@@ -878,7 +721,7 @@ function renderHistory(){
   const rows=filteredHistory();
   if(!rows.length){ $('histBody').innerHTML=`<tr><td colspan="7" class="empty">No history yet.</td></tr>`; return; }
   $('histBody').innerHTML=rows.slice(0,500).map(l=>{
-    const det=[l.type==='ship'&&l.orderDate?'Orders from '+fmtDate(l.orderDate):'', l.orderNo?'Order '+l.orderNo:'', l.channel, l.note, l.undone?'(undone)':''].filter(Boolean).map(esc).join(' · ');
+    const det=[ l.orderNo?'Order '+l.orderNo:'', l.channel, l.note, l.undone?'(undone)':''].filter(Boolean).map(esc).join(' · ');
     return `<tr class="${l.undone?'strike':''}"><td class="small">${fmtTs(l.ts)}</td><td><span class="pill ${l.type}">${TYPE_LBL[l.type]||l.type}</span></td>
       <td><b>${esc(l.sku)}</b></td><td>${esc(l.name)}</td>
       <td class="num" style="font-weight:600;color:${l.delta<0?'var(--red)':l.delta>0?'var(--green)':'inherit'}">${l.delta>0?'+':''}${l.delta}</td>
@@ -993,10 +836,9 @@ function renderBanner(){
   if(show) $('backupBannerText').textContent=state.lastBackup?`It's been ${Math.floor(days)} days since your last backup.`:'You haven\'t downloaded a backup yet.';
 }
 
-function renderAll(){ renderCatFilter(); renderInventory(); renderShip(); renderHistory(); renderSettings(); renderBanner(); }
+function renderAll(){ renderCatFilter(); renderInventory(); renderHistory(); renderSettings(); renderBanner(); }
 
 renderAll();
-['shipItem','shipQty','shipOrder'].forEach(id=>$(id).addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); addShipLine(); }}));
 boot();
 </script>
 </body>
