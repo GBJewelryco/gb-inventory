@@ -7,7 +7,7 @@
 <style>
   :root{
     --ink:#1b2232; --muted:#6b7385; --line:#e4e7ee; --bg:#f6f7fa; --card:#fff;
-    --gold:#95c3ed; --gold-soft:#eaf4fd; --navy:#1d3f63; --blue:#95c3ed; --blue-dk:#2f6ea8; --red:#c2412d; --red-soft:#fbeae6;
+    --gold:#95c3ed; --gold-soft:#f8f3e6; --navy:#1d3f63; --blue:#95c3ed; --blue-dk:#2f6ea8; --red:#c2412d; --red-soft:#fbeae6;
     --green:#2f7d4f; --green-soft:#e6f3ea; --radius:10px;
   }
   *{box-sizing:border-box}
@@ -20,7 +20,7 @@
   nav button:hover{color:var(--ink);background:var(--gold-soft)}
   nav button.active{background:var(--blue);color:#0f2a44;font-weight:600}
   main{max-width:1200px;margin:0 auto;padding:22px 24px 60px}
-  .banner{background:var(--gold-soft);border:1px solid #c6dff5;color:#1d3f63;padding:10px 14px;border-radius:var(--radius);margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;gap:12px}
+  .banner{background:var(--gold-soft);border:1px solid #e8dfc8;color:#1d3f63;padding:10px 14px;border-radius:var(--radius);margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;gap:12px}
   .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:18px}
   .stat{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px}
   .stat .lbl{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.6px}
@@ -56,7 +56,7 @@
   .pill.ok{background:var(--green-soft);color:var(--green)}
   .pill.ship{background:#e8ecf6;color:var(--navy)}
   .pill.restock{background:var(--green-soft);color:var(--green)}
-  .pill.adjust{background:#fff4e0;color:#8a5a12}
+  .pill.adjust{background:#f8f3e6;color:#5c5340}
   .pill.add{background:#eef0f4;color:#4a5263}
   .pill.delete,.pill.undo{background:var(--red-soft);color:var(--red)}
   .muted{color:var(--muted)}
@@ -403,7 +403,7 @@ async function putFile(name, text, sha, message, token=TOKEN){
 }
 function setSync(s, msg){
   const el=$('sync'); if(!el) return;
-  const map={ok:['Saved','#2f7d4f'],pending:['Saving…','#c08a1e'],offline:['Not saved — retrying','#c2412d'],error:[msg||'Not saved','#c2412d']};
+  const map={ok:['Saved','#2f7d4f'],pending:['Saving…','#2f6ea8'],offline:['Not saved — retrying','#c2412d'],error:[msg||'Not saved','#c2412d']};
   const [t,c]=map[s]||map.ok; el.innerHTML=`<span style="color:${c}">●</span> ${esc(t)}`; el.title=msg||'';
 }
 function schedulePush(){ setSync('pending'); clearTimeout(pushTimer); pushTimer=setTimeout(()=>{ pushTimer=null; push(); },500); }
