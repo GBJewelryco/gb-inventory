@@ -7,20 +7,20 @@
 <style>
   :root{
     --ink:#1b2232; --muted:#6b7385; --line:#e4e7ee; --bg:#f6f7fa; --card:#fff;
-    --gold:#b8913a; --gold-soft:#f6efe0; --navy:#1f2a44; --red:#c2412d; --red-soft:#fbeae6;
+    --gold:#95c3ed; --gold-soft:#eaf4fd; --navy:#1d3f63; --blue:#95c3ed; --blue-dk:#2f6ea8; --red:#c2412d; --red-soft:#fbeae6;
     --green:#2f7d4f; --green-soft:#e6f3ea; --radius:10px;
   }
   *{box-sizing:border-box}
   body{margin:0;font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:var(--ink);background:var(--bg)}
-  header{background:var(--navy);color:#fff;padding:14px 24px;display:flex;align-items:center;gap:24px;flex-wrap:wrap}
+  header{background:#fff;color:var(--ink);border-bottom:4px solid var(--blue);padding:14px 24px;display:flex;align-items:center;gap:24px;flex-wrap:wrap}
   header h1{font-size:18px;margin:0;font-weight:600;letter-spacing:.3px}
-  header h1 span{color:var(--gold)}
+  header h1 span{color:var(--blue-dk)}
   nav{display:flex;gap:4px;flex-wrap:wrap}
-  nav button{background:transparent;border:0;color:#c9cfdc;padding:8px 14px;border-radius:8px;font-size:14px;cursor:pointer}
-  nav button:hover{color:#fff;background:rgba(255,255,255,.08)}
-  nav button.active{background:var(--gold);color:#fff}
+  nav button{background:transparent;border:0;color:#4a5568;padding:8px 14px;border-radius:8px;font-size:14px;cursor:pointer}
+  nav button:hover{color:var(--ink);background:var(--gold-soft)}
+  nav button.active{background:var(--blue);color:#0f2a44;font-weight:600}
   main{max-width:1200px;margin:0 auto;padding:22px 24px 60px}
-  .banner{background:var(--gold-soft);border:1px solid #ead9b3;color:#6a521c;padding:10px 14px;border-radius:var(--radius);margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;gap:12px}
+  .banner{background:var(--gold-soft);border:1px solid #c6dff5;color:#1d3f63;padding:10px 14px;border-radius:var(--radius);margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;gap:12px}
   .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:18px}
   .stat{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px}
   .stat .lbl{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.6px}
@@ -34,10 +34,10 @@
   input:focus,select:focus,textarea:focus{outline:2px solid var(--gold);outline-offset:-1px;border-color:var(--gold)}
   button.btn{font:inherit;font-weight:550;padding:8px 14px;border-radius:8px;border:1px solid #cfd4de;background:#fff;color:var(--ink);cursor:pointer;white-space:nowrap}
   button.btn:hover{background:#f1f3f7}
-  button.primary{background:var(--navy);border-color:var(--navy);color:#fff}
-  button.primary:hover{background:#2b3a5e}
-  button.gold{background:var(--gold);border-color:var(--gold);color:#fff}
-  button.gold:hover{background:#a37f30}
+  button.primary{background:var(--blue);border-color:var(--blue);color:#0f2a44;font-weight:600}
+  button.primary:hover{background:#7fb3e4;border-color:#7fb3e4}
+  button.gold{background:#fff;border-color:var(--blue);color:#1d3f63;font-weight:600}
+  button.gold:hover{background:var(--gold-soft)}
   button.danger{color:var(--red);border-color:#e7b9b0}
   button.danger:hover{background:var(--red-soft)}
   button.sm{padding:4px 9px;font-size:13px}
@@ -56,7 +56,7 @@
   .pill.ok{background:var(--green-soft);color:var(--green)}
   .pill.ship{background:#e8ecf6;color:var(--navy)}
   .pill.restock{background:var(--green-soft);color:var(--green)}
-  .pill.adjust{background:var(--gold-soft);color:#7d5f1f}
+  .pill.adjust{background:#fff4e0;color:#8a5a12}
   .pill.add{background:#eef0f4;color:#4a5263}
   .pill.delete,.pill.undo{background:var(--red-soft);color:var(--red)}
   .muted{color:var(--muted)}
@@ -95,20 +95,20 @@
   .pbhead{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;background:var(--gold-soft);padding:10px 12px}
   .pbctl{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
   .pbctl select,.pbctl input{padding:5px 8px}
-  .rates{margin-top:10px;font-size:14px;color:#6a521c}
-  .hdr-right{margin-left:auto;display:flex;align-items:center;gap:12px;color:#c9cfdc}
-  .lockbtn{background:transparent;border:1px solid rgba(255,255,255,.25);color:#fff;border-radius:8px;padding:6px 12px;cursor:pointer;font:inherit;font-size:13px}
-  .lockbtn:hover{background:rgba(255,255,255,.08)}
-  .lock{position:fixed;inset:0;background:var(--navy);z-index:100;display:flex;align-items:flex-start;justify-content:center;padding:10vh 16px;overflow:auto}
+  .rates{margin-top:10px;font-size:14px;color:#1d3f63}
+  .hdr-right{margin-left:auto;display:flex;align-items:center;gap:12px;color:#4a5568}
+  .lockbtn{background:#fff;border:1px solid var(--blue);color:#1d3f63;border-radius:8px;padding:6px 12px;cursor:pointer;font:inherit;font-size:13px}
+  .lockbtn:hover{background:var(--gold-soft)}
+  .lock{position:fixed;inset:0;background:var(--blue);z-index:100;display:flex;align-items:flex-start;justify-content:center;padding:10vh 16px;overflow:auto}
   .lockbox{background:#fff;border-radius:16px;padding:28px;width:100%;max-width:440px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.35)}
   .lockbox .logo{font-size:20px;font-weight:650;margin-bottom:14px}
-  .lockbox .logo span{color:var(--gold)}
+  .lockbox .logo span{color:var(--blue-dk)}
   .lmsg{color:var(--muted);margin:0 0 16px}
   .pin{display:block;width:100%;font-size:26px;text-align:center;letter-spacing:10px;padding:12px;margin-bottom:14px}
   .wide{display:block;width:100%;margin-bottom:10px}
   .big{width:100%;padding:12px;font-size:16px}
   .steps{text-align:left;padding-left:20px;margin:0 0 16px;font-size:14px;line-height:1.6}
-  .steps a{color:var(--gold);font-weight:600}
+  .steps a{color:var(--blue-dk);font-weight:600}
   @media (max-width:760px){
     .grid2,.grid3,.grid4,.shipline{grid-template-columns:1fr}
     .grid5{grid-template-columns:repeat(3,1fr)}
@@ -296,7 +296,7 @@
         <label class="f">Type it again<input id="newPin2" type="password" inputmode="numeric" autocomplete="off"></label>
         <div style="display:flex;align-items:flex-end"><button class="btn primary" onclick="changePasscode()">Change passcode</button></div>
       </div>
-      <p class="muted small" style="margin-top:16px">If saving stops with a "GitHub key" message, the key has expired. <a href="https://github.com/settings/personal-access-tokens/new?name=GB%20Inventory%20app&target_name=GBJewelryco&contents=write" target="_blank" rel="noopener" style="color:var(--gold)">Make a new one</a> (only the gb-inventory repo, Contents: Read and write) and paste it here.</p>
+      <p class="muted small" style="margin-top:16px">If saving stops with a "GitHub key" message, the key has expired. <a href="https://github.com/settings/personal-access-tokens/new?name=GB%20Inventory%20app&target_name=GBJewelryco&contents=write" target="_blank" rel="noopener" style="color:var(--blue-dk)">Make a new one</a> (only the gb-inventory repo, Contents: Read and write) and paste it here.</p>
       <div class="toolbar" style="margin-bottom:0">
         <input id="newTok" type="password" class="grow" autocomplete="off" placeholder="Paste new GitHub key">
         <button class="btn" onclick="updateToken()">Update GitHub key</button>
@@ -403,7 +403,7 @@ async function putFile(name, text, sha, message, token=TOKEN){
 }
 function setSync(s, msg){
   const el=$('sync'); if(!el) return;
-  const map={ok:['Saved','#7fd49a'],pending:['Saving…','#e8c97a'],offline:['Not saved — retrying','#ff9b8a'],error:[msg||'Not saved','#ff9b8a']};
+  const map={ok:['Saved','#2f7d4f'],pending:['Saving…','#c08a1e'],offline:['Not saved — retrying','#c2412d'],error:[msg||'Not saved','#c2412d']};
   const [t,c]=map[s]||map.ok; el.innerHTML=`<span style="color:${c}">●</span> ${esc(t)}`; el.title=msg||'';
 }
 function schedulePush(){ setSync('pending'); clearTimeout(pushTimer); pushTimer=setTimeout(()=>{ pushTimer=null; push(); },500); }
@@ -466,7 +466,7 @@ async function boot(){
   showLock('<p class="lmsg">Loading…</p>');
   let cfg;
   try{ cfg=await getFile(CFG_FILE,null); }
-  catch(e){ showLock(`<p class="lmsg">Can't reach GitHub right now. Check the internet connection, then <a href="" style="color:var(--gold)">reload</a>.</p>`); return; }
+  catch(e){ showLock(`<p class="lmsg">Can't reach GitHub right now. Check the internet connection, then <a href="" style="color:var(--blue-dk)">reload</a>.</p>`); return; }
   if(!cfg){ setupScreen(); return; }
   CONFIG=JSON.parse(cfg.text); CONFIG_SHA=cfg.sha;
   const saved=sessionStorage.getItem('gbInvKey');
