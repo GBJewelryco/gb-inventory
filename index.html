@@ -79,6 +79,19 @@
   .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--navy);color:#fff;padding:10px 18px;border-radius:10px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:60}
   .toast.show{opacity:1}
   .hidden{display:none!important}
+  .hdr-right{margin-left:auto;display:flex;align-items:center;gap:12px;color:#c9cfdc}
+  .lockbtn{background:transparent;border:1px solid rgba(255,255,255,.25);color:#fff;border-radius:8px;padding:6px 12px;cursor:pointer;font:inherit;font-size:13px}
+  .lockbtn:hover{background:rgba(255,255,255,.08)}
+  .lock{position:fixed;inset:0;background:var(--navy);z-index:100;display:flex;align-items:flex-start;justify-content:center;padding:10vh 16px;overflow:auto}
+  .lockbox{background:#fff;border-radius:16px;padding:28px;width:100%;max-width:440px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.35)}
+  .lockbox .logo{font-size:20px;font-weight:650;margin-bottom:14px}
+  .lockbox .logo span{color:var(--gold)}
+  .lmsg{color:var(--muted);margin:0 0 16px}
+  .pin{display:block;width:100%;font-size:26px;text-align:center;letter-spacing:10px;padding:12px;margin-bottom:14px}
+  .wide{display:block;width:100%;margin-bottom:10px}
+  .big{width:100%;padding:12px;font-size:16px}
+  .steps{text-align:left;padding-left:20px;margin:0 0 16px;font-size:14px;line-height:1.6}
+  .steps a{color:var(--gold);font-weight:600}
   @media (max-width:760px){
     .grid2,.grid3,.shipline{grid-template-columns:1fr}
     main{padding:16px 12px 50px}
@@ -93,9 +106,20 @@
     <button data-tab="inventory" class="active">Inventory</button>
     <button data-tab="ship">Ship Orders</button>
     <button data-tab="history">History</button>
-    <button data-tab="backup">Backup &amp; Import</button>
+    <button data-tab="backup">Backup &amp; Settings</button>
   </nav>
+  <div class="hdr-right">
+    <span id="sync" class="small"></span>
+    <button class="lockbtn" onclick="lockNow()">Lock</button>
+  </div>
 </header>
+
+<div id="lock" class="lock">
+  <div class="lockbox">
+    <div class="logo">GB Jewelry Co. <span>Inventory</span></div>
+    <div id="lockBody"><p class="lmsg">Loading…</p></div>
+  </div>
+</div>
 
 <main>
   <div id="backupBanner" class="banner hidden">
@@ -216,7 +240,7 @@
   <section id="tab-backup" class="hidden">
     <div class="card">
       <h2>Backup</h2>
-      <p class="muted small">Your inventory is saved in this browser on this computer. Download a backup regularly (once a week is good) so nothing is lost if browser data is cleared. You can also use a backup to move your inventory to another computer.</p>
+      <p class="muted small">Your inventory saves automatically to your GitHub (encrypted with the passcode), so it's the same on every device. Downloading a backup once a week is still a good idea, so you always have your own copy.</p>
       <div class="toolbar">
         <button class="btn primary" onclick="downloadBackup()">Download backup (.json)</button>
         <label class="btn" style="display:inline-block">Restore from backup
@@ -255,6 +279,19 @@
       </div>
     </div>
     <div class="card">
+      <h2>Passcode &amp; GitHub key</h2>
+      <div class="grid3">
+        <label class="f">New passcode<input id="newPin1" type="password" inputmode="numeric" autocomplete="off"></label>
+        <label class="f">Type it again<input id="newPin2" type="password" inputmode="numeric" autocomplete="off"></label>
+        <div style="display:flex;align-items:flex-end"><button class="btn primary" onclick="changePasscode()">Change passcode</button></div>
+      </div>
+      <p class="muted small" style="margin-top:16px">If saving stops with a "GitHub key" message, the key has expired. <a href="https://github.com/settings/personal-access-tokens/new?name=GB%20Inventory%20app&target_name=GBJewelryco&contents=write" target="_blank" rel="noopener" style="color:var(--gold)">Make a new one</a> (only the gb-inventory repo, Contents: Read and write) and paste it here.</p>
+      <div class="toolbar" style="margin-bottom:0">
+        <input id="newTok" type="password" class="grow" autocomplete="off" placeholder="Paste new GitHub key">
+        <button class="btn" onclick="updateToken()">Update GitHub key</button>
+      </div>
+    </div>
+    <div class="card">
       <h2>Danger zone</h2>
       <button class="btn danger" onclick="wipeAll()">Erase all inventory and history</button>
     </div>
@@ -269,7 +306,8 @@
 
 <script>
 /* ---------- storage ---------- */
-const KEY = 'gbInventory.v1';
+const OLD_KEY = 'gbInventory.v1';           // data saved before cloud sync (migrated at setup)
+const LOCAL_KEY = 'gbInventory.localDraft'; // this device's unsent shipping list only
 const DEFAULTS = {
   items: [], log: [], draft: [], draftDate: '', lastBackup: 0,
   settings: {
@@ -278,19 +316,245 @@ const DEFAULTS = {
     lowDefault: 2
   }
 };
-let state;
+let state = structuredClone(DEFAULTS);
 let storageOK = true;
-function load(){
-  try{
-    const raw = localStorage.getItem(KEY);
-    state = raw ? JSON.parse(raw) : structuredClone(DEFAULTS);
-  }catch(e){ storageOK = false; state = structuredClone(DEFAULTS); }
-  state = Object.assign(structuredClone(DEFAULTS), state);
-  state.settings = Object.assign(structuredClone(DEFAULTS.settings), state.settings||{});
+(function loadLocalDraft(){
+  try{ const d = JSON.parse(localStorage.getItem(LOCAL_KEY)||'{}'); state.draft = d.draft||[]; state.draftDate = d.draftDate||''; }catch(e){}
+})();
+function normalize(obj){
+  const s = Object.assign(structuredClone(DEFAULTS), obj||{});
+  s.settings = Object.assign(structuredClone(DEFAULTS.settings), (obj&&obj.settings)||{});
+  return s;
 }
+function remoteJSON(){ const {draft, draftDate, ...rest} = state; return JSON.stringify(rest); }
 function save(){
-  try{ localStorage.setItem(KEY, JSON.stringify(state)); storageOK = true; }
-  catch(e){ storageOK = false; toast('Could not save — download a backup now!'); }
+  try{ localStorage.setItem(LOCAL_KEY, JSON.stringify({draft:state.draft, draftDate:state.draftDate})); }catch(e){}
+  if(!KEY_AES) return;
+  if(remoteJSON() !== lastSynced) schedulePush();
+}
+
+/* ---------- cloud sync (GitHub, encrypted with the passcode) ---------- */
+const OWNER='GBJewelryco', REPO='gb-inventory', BRANCH='data', CFG_FILE='config.enc.json', DATA_FILE='inventory.enc.json';
+const API=`https://api.github.com/repos/${OWNER}/${REPO}`;
+const ITER=600000;
+let TOKEN=null, KEY_AES=null, CONFIG=null, CONFIG_SHA=null, DATA_SHA=null, lastSynced=null;
+let pushing=false, pushTimer=null, dirty=false, pollTimer=null;
+const te=new TextEncoder(), td=new TextDecoder();
+const b64e=buf=>{ const b=new Uint8Array(buf); let s=''; for(let i=0;i<b.length;i+=0x8000) s+=String.fromCharCode.apply(null,b.subarray(i,i+0x8000)); return btoa(s); };
+const b64d=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
+async function deriveKey(pass, salt, iter){
+  const base=await crypto.subtle.importKey('raw',te.encode(pass),'PBKDF2',false,['deriveKey']);
+  return crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations:iter||ITER,hash:'SHA-256'},base,{name:'AES-GCM',length:256},true,['encrypt','decrypt']);
+}
+async function encryptStr(key,str){ const iv=crypto.getRandomValues(new Uint8Array(12)); const ct=await crypto.subtle.encrypt({name:'AES-GCM',iv},key,te.encode(str)); return {iv:b64e(iv),ct:b64e(ct)}; }
+async function decryptStr(key,o){ return td.decode(await crypto.subtle.decrypt({name:'AES-GCM',iv:b64d(o.iv)},key,b64d(o.ct))); }
+
+async function gh(path, opts={}, token=TOKEN){
+  const headers={'Accept':'application/vnd.github+json'};
+  if(token) headers['Authorization']='Bearer '+token;
+  if(opts.body) headers['Content-Type']='application/json';
+  return fetch(API+path,{...opts,headers,cache:'no-store'});
+}
+function ghErr(r,msg){ const e=new Error(msg||('GitHub error '+r.status)); e.status=r.status; return e; }
+async function getFile(name, token=TOKEN){
+  const r=await gh(`/contents/${name}?ref=${BRANCH}`,{},token);
+  if(r.status===404) return null;
+  if(!r.ok) throw ghErr(r);
+  const j=await r.json(); let c=j.content;
+  if(!c && j.sha){ const b=await gh(`/git/blobs/${j.sha}`,{},token); if(!b.ok) throw ghErr(b); c=(await b.json()).content; }
+  return {sha:j.sha, text:td.decode(b64d(c.replace(/\s/g,'')))};
+}
+async function putFile(name, text, sha, message, token=TOKEN){
+  const body={message, content:b64e(te.encode(text)), branch:BRANCH};
+  if(sha) body.sha=sha;
+  const r=await gh(`/contents/${name}`,{method:'PUT',body:JSON.stringify(body)},token);
+  if(!r.ok) throw ghErr(r);
+  return (await r.json()).content.sha;
+}
+function setSync(s, msg){
+  const el=$('sync'); if(!el) return;
+  const map={ok:['Saved','#7fd49a'],pending:['Saving…','#e8c97a'],offline:['Not saved — retrying','#ff9b8a'],error:[msg||'Not saved','#ff9b8a']};
+  const [t,c]=map[s]||map.ok; el.innerHTML=`<span style="color:${c}">●</span> ${esc(t)}`; el.title=msg||'';
+}
+function schedulePush(){ setSync('pending'); clearTimeout(pushTimer); pushTimer=setTimeout(()=>{ pushTimer=null; push(); },500); }
+async function push(){
+  if(pushing){ dirty=true; return; }
+  pushing=true; dirty=false;
+  const json=remoteJSON();
+  let retry=false;
+  try{
+    const payload=JSON.stringify(Object.assign({v:1},await encryptStr(KEY_AES,json)));
+    DATA_SHA=await putFile(DATA_FILE,payload,DATA_SHA,'Inventory update');
+    lastSynced=json; setSync('ok');
+  }catch(e){
+    if(e.status===409||e.status===422){
+      await pullNow();
+      toast('Inventory was changed on another device at the same moment. It has been refreshed — please redo your last change.');
+    }else if(e.status===401||e.status===403){
+      setSync('error','GitHub key expired or not allowed — update it under Backup & Settings');
+      toast('Not saved: the GitHub key needs to be updated (Backup & Settings tab).');
+    }else{ setSync('offline'); retry=true; }
+  }finally{
+    pushing=false;
+    if(retry) setTimeout(()=>{ if(remoteJSON()!==lastSynced) push(); },5000);
+    else if(dirty || remoteJSON()!==lastSynced) schedulePush();
+  }
+}
+function applyRemote(txt, sha){
+  const keep={draft:state.draft, draftDate:state.draftDate};
+  state=Object.assign(normalize(JSON.parse(txt)), keep);
+  DATA_SHA=sha; lastSynced=remoteJSON();
+}
+async function pullNow(){
+  const f=await getFile(DATA_FILE);
+  if(!f){ return; }
+  if(f.sha===DATA_SHA) return;
+  let txt;
+  try{ txt=await decryptStr(KEY_AES, JSON.parse(f.text)); }
+  catch(e){ lockNow('The passcode was changed on another device. Enter the new passcode.'); return; }
+  applyRemote(txt, f.sha); renderAll();
+}
+async function poll(){
+  if(!KEY_AES || pushing || pushTimer || document.hidden) return;
+  if(remoteJSON()!==lastSynced) return;
+  try{ await pullNow(); if(KEY_AES) setSync('ok'); }catch(e){ if(e.status===401||e.status===403) setSync('error','GitHub key expired — update it under Backup & Settings'); }
+}
+window.addEventListener('beforeunload',e=>{ if(KEY_AES && (pushing||pushTimer||remoteJSON()!==lastSynced)){ e.preventDefault(); e.returnValue=''; } });
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden) poll(); });
+
+/* ---------- lock screen / setup ---------- */
+function showLock(html){ $('lock').classList.remove('hidden'); $('lockBody').innerHTML=html; const f=$('lockBody').querySelector('input'); if(f) setTimeout(()=>f.focus(),30); }
+function hideLock(){ $('lock').classList.add('hidden'); }
+function lockScreen(msg){
+  showLock(`<p class="lmsg">${esc(msg||'Enter the passcode to open the inventory.')}</p>
+    <input id="pcode" type="password" inputmode="numeric" autocomplete="off" placeholder="Passcode" class="pin">
+    <button class="btn gold big" id="unlockBtn" onclick="doUnlock()">Unlock</button>
+    <div class="err" id="lockErr"></div>`);
+  $('pcode').addEventListener('keydown',e=>{ if(e.key==='Enter') doUnlock(); });
+}
+async function boot(){
+  showLock('<p class="lmsg">Loading…</p>');
+  let cfg;
+  try{ cfg=await getFile(CFG_FILE,null); }
+  catch(e){ showLock(`<p class="lmsg">Can't reach GitHub right now. Check the internet connection, then <a href="" style="color:var(--gold)">reload</a>.</p>`); return; }
+  if(!cfg){ setupScreen(); return; }
+  CONFIG=JSON.parse(cfg.text); CONFIG_SHA=cfg.sha;
+  const saved=sessionStorage.getItem('gbInvKey');
+  if(saved){
+    try{
+      const key=await crypto.subtle.importKey('raw',b64d(saved),{name:'AES-GCM'},true,['encrypt','decrypt']);
+      const token=await decryptStr(key,CONFIG.token);
+      await finishUnlock(key,token); return;
+    }catch(e){ sessionStorage.removeItem('gbInvKey'); }
+  }
+  lockScreen();
+}
+async function doUnlock(){
+  const code=$('pcode').value; if(!code) return;
+  $('unlockBtn').disabled=true; $('lockErr').textContent=''; $('unlockBtn').textContent='Unlocking…';
+  try{
+    const key=await deriveKey(code,b64d(CONFIG.salt),CONFIG.iter);
+    let token;
+    try{ token=await decryptStr(key,CONFIG.token); }
+    catch(e){ $('lockErr').textContent='Wrong passcode.'; $('pcode').value=''; $('pcode').focus(); return; }
+    await finishUnlock(key,token);
+  }catch(e){ $('lockErr').textContent='Could not load the inventory from GitHub. Check the internet and try again.'; }
+  finally{ const b=$('unlockBtn'); if(b){ b.disabled=false; b.textContent='Unlock'; } }
+}
+async function finishUnlock(key, token){
+  const f=await getFile(DATA_FILE, token);
+  TOKEN=token; KEY_AES=key;
+  if(f){ applyRemote(await decryptStr(key,JSON.parse(f.text)), f.sha); }
+  else { lastSynced=null; }
+  try{ sessionStorage.setItem('gbInvKey', b64e(await crypto.subtle.exportKey('raw',key))); }catch(e){}
+  hideLock(); renderAll(); setSync('ok');
+  if(!f) save();
+  clearInterval(pollTimer); pollTimer=setInterval(poll,20000);
+}
+function lockNow(msg){
+  try{ sessionStorage.removeItem('gbInvKey'); }catch(e){}
+  clearInterval(pollTimer); TOKEN=null; KEY_AES=null;
+  const keep={draft:state.draft, draftDate:state.draftDate};
+  state=Object.assign(structuredClone(DEFAULTS),keep); renderAll();
+  if(CONFIG) lockScreen(msg); else boot();
+}
+const TOKEN_URL='https://github.com/settings/personal-access-tokens/new?name=GB%20Inventory%20app&description=Lets%20the%20gb-inventory%20app%20save%20inventory%20data&target_name=GBJewelryco&contents=write';
+function setupScreen(){
+  showLock(`<h2 style="margin:0 0 6px">One-time setup</h2>
+    <p class="lmsg" style="text-align:left">This lets the inventory save to your GitHub so every device sees the same stock. You only do this once.</p>
+    <ol class="steps">
+      <li><a href="${TOKEN_URL}" target="_blank" rel="noopener">Open this GitHub page</a> (signed in as GBJewelryco).</li>
+      <li>Under <b>Repository access</b> pick <b>Only select repositories</b> → <b>gb-inventory</b>.</li>
+      <li>Under <b>Permissions</b> make sure <b>Contents</b> is <b>Read and write</b>. Set the expiration as long as GitHub allows.</li>
+      <li>Click <b>Generate token</b>, copy it, and paste it below.</li>
+    </ol>
+    <input id="sTok" type="password" autocomplete="off" placeholder="Paste GitHub key (starts with github_pat_)" class="wide">
+    <input id="sPin1" type="password" inputmode="numeric" autocomplete="off" placeholder="Choose passcode" class="wide">
+    <input id="sPin2" type="password" inputmode="numeric" autocomplete="off" placeholder="Type passcode again" class="wide">
+    <button class="btn gold big" id="setupBtn" onclick="doSetup()">Finish setup</button>
+    <div class="err" id="setupErr"></div>`);
+}
+async function ensureBranch(token){
+  let r=await gh(`/git/ref/heads/${BRANCH}`,{},token);
+  if(r.ok) return;
+  if(r.status===401||r.status===403) throw ghErr(r,'That GitHub key was not accepted.');
+  r=await gh(`/git/ref/heads/main`,{},token); if(!r.ok) throw ghErr(r,'Could not read the repository with that key.');
+  const sha=(await r.json()).object.sha;
+  r=await gh(`/git/refs`,{method:'POST',body:JSON.stringify({ref:'refs/heads/'+BRANCH,sha})},token);
+  if(!r.ok && r.status!==422) throw ghErr(r,'That key cannot write to gb-inventory. Check that Contents is set to Read and write.');
+}
+async function doSetup(){
+  const tok=$('sTok').value.trim(), p1=$('sPin1').value, p2=$('sPin2').value, err=$('setupErr');
+  err.textContent='';
+  if(!tok){ err.textContent='Paste the GitHub key first.'; return; }
+  if(p1.length<4){ err.textContent='Passcode must be at least 4 characters.'; return; }
+  if(p1!==p2){ err.textContent='The two passcodes don\'t match.'; return; }
+  const btn=$('setupBtn'); btn.disabled=true; btn.textContent='Setting up…';
+  try{
+    await ensureBranch(tok);
+    const existing=await getFile(CFG_FILE,tok);
+    if(existing){ err.textContent='Setup was already finished on another device. Reload the page and enter the passcode.'; return; }
+    const salt=crypto.getRandomValues(new Uint8Array(16));
+    const key=await deriveKey(p1,salt,ITER);
+    let start=structuredClone(DEFAULTS);
+    try{ const old=localStorage.getItem(OLD_KEY); if(old) start=normalize(JSON.parse(old)); }catch(e){}
+    const {draft,draftDate,...rest}=start;
+    const dataSha=await putFile(DATA_FILE, JSON.stringify(Object.assign({v:1},await encryptStr(key,JSON.stringify(rest)))), null, 'Create inventory data', tok);
+    CONFIG={v:1,iter:ITER,salt:b64e(salt),token:await encryptStr(key,tok)};
+    CONFIG_SHA=await putFile(CFG_FILE, JSON.stringify(CONFIG), null, 'Create app config', tok);
+    try{ if(localStorage.getItem(OLD_KEY)){ localStorage.setItem(OLD_KEY+'.migrated',localStorage.getItem(OLD_KEY)); localStorage.removeItem(OLD_KEY); } }catch(e){}
+    await finishUnlock(key,tok);
+    toast('Setup done — open this link on any device and enter the passcode');
+  }catch(e){ err.textContent=e.message||'Setup failed. Try again.'; }
+  finally{ const b=$('setupBtn'); if(b){ b.disabled=false; b.textContent='Finish setup'; } }
+}
+async function changePasscode(){
+  const p1=$('newPin1').value, p2=$('newPin2').value;
+  if(p1.length<4){ toast('Passcode must be at least 4 characters'); return; }
+  if(p1!==p2){ toast('The two passcodes don\'t match'); return; }
+  try{
+    await pullNow();
+    const salt=crypto.getRandomValues(new Uint8Array(16));
+    const key=await deriveKey(p1,salt,ITER);
+    const cfg={v:1,iter:ITER,salt:b64e(salt),token:await encryptStr(key,TOKEN)};
+    const newDataSha=await putFile(DATA_FILE, JSON.stringify(Object.assign({v:1},await encryptStr(key,remoteJSON()))), DATA_SHA, 'Change passcode');
+    DATA_SHA=newDataSha; lastSynced=remoteJSON();
+    CONFIG_SHA=await putFile(CFG_FILE, JSON.stringify(cfg), CONFIG_SHA, 'Change passcode');
+    CONFIG=cfg; KEY_AES=key;
+    sessionStorage.setItem('gbInvKey', b64e(await crypto.subtle.exportKey('raw',key)));
+    $('newPin1').value=''; $('newPin2').value='';
+    toast('Passcode changed — other devices will need the new one');
+  }catch(e){ toast('Could not change passcode: '+(e.message||'error')); }
+}
+async function updateToken(){
+  const tok=$('newTok').value.trim(); if(!tok){ toast('Paste the new GitHub key'); return; }
+  try{
+    await ensureBranch(tok);
+    const cfg=Object.assign({},CONFIG,{token:await encryptStr(KEY_AES,tok)});
+    CONFIG_SHA=await putFile(CFG_FILE, JSON.stringify(cfg), CONFIG_SHA, 'Update GitHub key', tok);
+    CONFIG=cfg; TOKEN=tok; $('newTok').value='';
+    toast('GitHub key updated'); if(remoteJSON()!==lastSynced) push(); else setSync('ok');
+  }catch(e){ toast('That key did not work: '+(e.message||'error')); }
 }
 
 /* ---------- helpers ---------- */
@@ -368,7 +632,7 @@ function renderInventory(){
     if(th.dataset.sort===sortKey) th.textContent+=sortDir>0?' ▲':' ▼';
   });
   if(!state.items.length){
-    $('invBody').innerHTML=`<tr><td colspan="7" class="empty">No items yet. Click <b>+ Add item</b> to start, or import a spreadsheet from <b>Backup &amp; Import</b>.</td></tr>`;
+    $('invBody').innerHTML=`<tr><td colspan="7" class="empty">No items yet. Click <b>+ Add item</b> to start, or import a spreadsheet from <b>Backup &amp; Settings</b>.</td></tr>`;
     return;
   }
   if(!rows.length){ $('invBody').innerHTML=`<tr><td colspan="7" class="empty">No items match.</td></tr>`; return; }
@@ -716,7 +980,7 @@ function saveSettings(){
   save(); renderAll(); toast('Lists saved');
 }
 function wipeAll(){
-  confirmModal('Erase everything?','This deletes all items and history in this browser. Download a backup first if you might need it.','Erase everything',()=>{
+  confirmModal('Erase everything?','This deletes all items and history on every device. Download a backup first if you might need it.','Erase everything',()=>{
     const s=state.settings; state=structuredClone(DEFAULTS); state.settings=s; save(); renderAll(); toast('Everything erased');
   },true);
 }
@@ -731,10 +995,9 @@ function renderBanner(){
 
 function renderAll(){ renderCatFilter(); renderInventory(); renderShip(); renderHistory(); renderSettings(); renderBanner(); }
 
-load();
 renderAll();
 ['shipItem','shipQty','shipOrder'].forEach(id=>$(id).addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); addShipLine(); }}));
-window.addEventListener('storage',e=>{ if(e.key===KEY){ load(); renderAll(); } });
+boot();
 </script>
 </body>
 </html>
