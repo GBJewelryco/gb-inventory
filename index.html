@@ -79,6 +79,23 @@
   .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--navy);color:#fff;padding:10px 18px;border-radius:10px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:60}
   .toast.show{opacity:1}
   .hidden{display:none!important}
+  .grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+  .grid5{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-top:6px}
+  .modal.wide{max-width:900px}
+  tr.prow{cursor:pointer}
+  tr.prow td{border-bottom:1px solid var(--line)}
+  .caret{display:inline-block;width:12px;color:var(--muted)}
+  tr.vhead td{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);background:#fafbfd;padding-top:6px;padding-bottom:6px}
+  tr.vrow td{background:#fcfcfe}
+  table.mini th,table.mini td{padding:6px 8px}
+  table.mini input{padding:6px 8px;width:100%}
+  input.w70{width:80px!important} input.w90{width:100px!important}
+  tr.sub td{font-weight:600;border-top:2px solid var(--line)}
+  .pblock{border:1px solid var(--line);border-radius:10px;margin-top:14px;overflow:hidden}
+  .pbhead{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;background:var(--gold-soft);padding:10px 12px}
+  .pbctl{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .pbctl select,.pbctl input{padding:5px 8px}
+  .rates{margin-top:10px;font-size:14px;color:#6a521c}
   .hdr-right{margin-left:auto;display:flex;align-items:center;gap:12px;color:#c9cfdc}
   .lockbtn{background:transparent;border:1px solid rgba(255,255,255,.25);color:#fff;border-radius:8px;padding:6px 12px;cursor:pointer;font:inherit;font-size:13px}
   .lockbtn:hover{background:rgba(255,255,255,.08)}
@@ -93,7 +110,8 @@
   .steps{text-align:left;padding-left:20px;margin:0 0 16px;font-size:14px;line-height:1.6}
   .steps a{color:var(--gold);font-weight:600}
   @media (max-width:760px){
-    .grid2,.grid3,.shipline{grid-template-columns:1fr}
+    .grid2,.grid3,.grid4,.shipline{grid-template-columns:1fr}
+    .grid5{grid-template-columns:repeat(3,1fr)}
     main{padding:16px 12px 50px}
     .hide-sm{display:none}
   }
@@ -104,6 +122,7 @@
   <h1>GB Jewelry Co. <span>Inventory</span></h1>
   <nav id="nav">
     <button data-tab="inventory" class="active">Inventory</button>
+    <button data-tab="purchases">Purchases</button>
     <button data-tab="history">History</button>
     <button data-tab="backup">Backup &amp; Settings</button>
   </nav>
@@ -131,7 +150,7 @@
     <div class="stats" id="stats"></div>
     <div class="card">
       <div class="toolbar">
-        <input class="grow" id="search" placeholder="Search SKU, name, metal, stone…" oninput="renderInventory()">
+        <input class="grow" id="search" placeholder="Search SKU, name or size…" oninput="renderInventory()">
         <select id="catFilter" onchange="renderInventory()"></select>
         <select id="stockFilter" onchange="renderInventory()">
           <option value="">All stock levels</option>
@@ -139,18 +158,14 @@
           <option value="out">Out of stock</option>
           <option value="in">In stock</option>
         </select>
-        <button class="btn primary" onclick="openItemModal()">+ Add item</button>
+        <button class="btn" id="expAllBtn" onclick="toggleAll()">Show all sizes</button>
+        <button class="btn primary" onclick="openProductModal()">+ New SKU</button>
       </div>
       <div class="scroll">
-        <table>
+        <table class="inv">
           <thead><tr>
-            <th class="sort" data-sort="sku">SKU</th>
-            <th class="sort" data-sort="name">Item</th>
-            <th class="sort hide-sm" data-sort="category">Category</th>
-            <th class="sort num" data-sort="qty">In stock</th>
-            <th class="hide-sm">Status</th>
-            <th class="sort num hide-sm" data-sort="price">Price</th>
-            <th class="num">Actions</th>
+            <th>SKU</th><th>Item</th><th class="hide-sm">Category</th>
+            <th class="num">Sizes</th><th class="num">In stock</th><th class="num hide-sm">Stock value</th><th class="num">Actions</th>
           </tr></thead>
           <tbody id="invBody"></tbody>
         </table>
@@ -158,18 +173,57 @@
     </div>
   </section>
 
+  <!-- PURCHASES -->
+  <section id="tab-purchases" class="hidden">
+    <div class="card">
+      <h2>Add a purchase</h2>
+      <div class="grid4">
+        <label class="f">Date bought<input type="date" id="pDate" data-h="date"></label>
+        <label class="f">Supplier<input id="pSupplier" data-h="supplier" list="supList" placeholder="Who you bought from"></label>
+        <label class="f">Invoice #<input id="pInvoice" data-h="invoice"></label>
+        <label class="f">Gold spot ($ per troy oz)<input id="pSpot" data-h="spot" type="number" step="0.01" min="0" placeholder="e.g. 2650.00"></label>
+      </div>
+      <datalist id="supList"></datalist>
+      <div id="pRates" class="rates"></div>
+      <div class="toolbar" style="margin-top:14px">
+        <input id="pPick" list="prodList" class="grow" placeholder="Type a SKU or item name, then Add item" autocomplete="off">
+        <button class="btn gold" onclick="addPurchaseProduct()">Add item</button>
+        <button class="btn" onclick="openProductModal(null,true)">+ New SKU</button>
+      </div>
+      <datalist id="prodList"></datalist>
+      <div class="err" id="pErr"></div>
+      <div id="pBlocks"></div>
+      <label class="f" style="margin-top:10px">Note (optional)<input id="pNote" data-h="note"></label>
+      <div class="toolbar" style="justify-content:flex-end;margin:14px 0 0">
+        <span id="pTotals" class="muted"></span>
+        <button class="btn danger" onclick="clearPurchaseDraft()">Clear</button>
+        <button class="btn primary" onclick="savePurchase()">Save purchase &amp; add to stock</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="toolbar">
+        <h2 style="margin:0">Purchase history</h2><span class="grow"></span>
+        <button class="btn" onclick="exportPurchasesCSV()">Export CSV</button>
+      </div>
+      <div class="scroll"><table>
+        <thead><tr><th>Date</th><th>Supplier</th><th class="hide-sm">Invoice #</th><th class="num">Gold spot</th><th class="num">SKUs</th><th class="num">Units</th><th class="num">Total cost</th><th></th></tr></thead>
+        <tbody id="purBody"></tbody>
+      </table></div>
+    </div>
+  </section>
+
   <!-- HISTORY -->
   <section id="tab-history" class="hidden">
     <div class="card">
       <div class="toolbar">
-        <input class="grow" id="hSearch" placeholder="Search SKU, item, order #…" oninput="renderHistory()">
+        <input class="grow" id="hSearch" placeholder="Search SKU, size, supplier, order #…" oninput="renderHistory()">
         <select id="hType" onchange="renderHistory()">
           <option value="">All changes</option>
+          <option value="purchase">Bought</option>
           <option value="ship">Sold</option>
-          <option value="restock">Restocked</option>
-          <option value="adjust">Count adjusted</option>
-          <option value="add">Item added</option>
-          <option value="delete">Item deleted</option>
+          <option value="adjust">Count set</option>
+          <option value="add">SKU added</option>
+          <option value="delete">Deleted</option>
           <option value="undo">Undone</option>
         </select>
         <label class="small muted">From <input type="date" id="hFrom" onchange="renderHistory()"></label>
@@ -177,7 +231,7 @@
         <button class="btn" onclick="exportHistoryCSV()">Export CSV</button>
       </div>
       <div class="scroll"><table>
-        <thead><tr><th>When</th><th>Type</th><th>SKU</th><th>Item</th><th class="num">Change</th><th class="num">Stock after</th><th class="hide-sm">Details</th></tr></thead>
+        <thead><tr><th>When</th><th>Type</th><th>SKU</th><th>Size</th><th class="hide-sm">Item</th><th class="num">Change</th><th class="num">Stock after</th><th class="num">Cost</th><th class="hide-sm">Details</th></tr></thead>
         <tbody id="histBody"></tbody>
       </table></div>
     </div>
@@ -198,17 +252,18 @@
     </div>
     <div class="card">
       <h2>Spreadsheet (CSV)</h2>
-      <p class="muted small">Export your inventory to open in Excel or Google Sheets, or import many items at once. Import columns: <code>sku, name, category, metal, stone, size, qty, low, cost, price, notes</code>. Rows with a SKU that already exists update that item.</p>
+      <p class="muted small">Export to open in Excel or Google Sheets, or load your current stock all at once. Import has one row per size: <code>sku, name, category, karat, color, cost_type, size, qty, unit_cost, price, low</code>. Rows for a SKU or size that already exists update it; <code>qty</code> sets the count on hand (new units are added at <code>unit_cost</code>).</p>
       <div class="toolbar">
         <button class="btn" onclick="exportInventoryCSV()">Export inventory CSV</button>
+        <button class="btn" onclick="exportPurchasesCSV()">Export purchases CSV</button>
         <button class="btn" onclick="downloadTemplateCSV()">Download blank import template</button>
-        <label class="btn" style="display:inline-block">Import items from CSV
+        <label class="btn" style="display:inline-block">Import stock from CSV
           <input type="file" accept=".csv,text/csv" class="hidden" onchange="importCSV(this)">
         </label>
       </div>
     </div>
     <div class="card">
-      <h2>Lists</h2>
+      <h2>Lists &amp; gold settings</h2>
       <div class="grid2">
         <label class="f">Categories (one per line)
           <textarea id="setCats" rows="7"></textarea>
@@ -217,12 +272,21 @@
           <textarea id="setChannels" rows="7"></textarea>
         </label>
       </div>
+      <div class="f" style="margin-top:14px">Gold purity used in cost math (%)</div>
+      <div class="grid5">
+        <label class="f">10K<input id="pur10" type="number" step="0.1"></label>
+        <label class="f">14K<input id="pur14" type="number" step="0.1"></label>
+        <label class="f">18K<input id="pur18" type="number" step="0.1"></label>
+        <label class="f">22K<input id="pur22" type="number" step="0.1"></label>
+        <label class="f">24K<input id="pur24" type="number" step="0.1"></label>
+      </div>
+      <p class="muted small" style="margin:6px 0 0">Gold cost per gram = spot price ÷ 31.1035 × purity. Raise a number a little if your supplier charges for alloy or loss.</p>
       <div class="toolbar" style="margin-top:12px;margin-bottom:0">
         <label class="f" style="flex-direction:row;align-items:center;gap:8px">Default low-stock alert at
           <input id="setLow" type="number" min="0" style="width:80px"> units
         </label>
         <span class="grow"></span>
-        <button class="btn primary" onclick="saveSettings()">Save lists</button>
+        <button class="btn primary" onclick="saveSettings()">Save settings</button>
       </div>
     </div>
     <div class="card">
@@ -240,7 +304,7 @@
     </div>
     <div class="card">
       <h2>Danger zone</h2>
-      <button class="btn danger" onclick="wipeAll()">Erase all inventory and history</button>
+      <button class="btn danger" onclick="wipeAll()">Erase all inventory, purchases and history</button>
     </div>
   </section>
 </main>
@@ -256,21 +320,40 @@
 const OLD_KEY = 'gbInventory.v1';           // data saved before cloud sync (migrated at setup)
 const LOCAL_KEY = 'gbInventory.localDraft'; // this device's unsent shipping list only
 const DEFAULTS = {
-  items: [], log: [], draft: [], draftDate: '', lastBackup: 0,
+  products: [], purchases: [], log: [], draft: null, draftDate: '', lastBackup: 0,
   settings: {
-    categories: ['Engagement Rings','Wedding Bands','Rings','Necklaces','Pendants','Earrings','Bracelets','Loose Diamonds','Other'],
+    categories: ['Earrings','Engagement Rings','Wedding Bands','Rings','Necklaces','Pendants','Bracelets','Loose Diamonds','Other'],
     channels: ['Etsy','eBay','Amazon','Shopify (website)','Faire','In person','Other'],
-    lowDefault: 2
+    lowDefault: 2,
+    purity: {'10':0.417,'14':0.585,'18':0.75,'22':0.916,'24':0.999},
+    lastSpot: ''
   }
 };
 let state = structuredClone(DEFAULTS);
 let storageOK = true;
 (function loadLocalDraft(){
-  try{ const d = JSON.parse(localStorage.getItem(LOCAL_KEY)||'{}'); state.draft = d.draft||[]; state.draftDate = d.draftDate||''; }catch(e){}
+  try{ const d = JSON.parse(localStorage.getItem(LOCAL_KEY)||'{}'); state.draft = (d.draft && !Array.isArray(d.draft)) ? d.draft : null; }catch(e){}
 })();
+function migrateItems(items){ // version-1 data (one row per item) -> SKUs with sizes
+  const today=new Date().toISOString().slice(0,10);
+  return (items||[]).map(i=>{
+    const m=String(i.metal||'').match(/(10|14|18|22|24)\s*k/i);
+    const q=Math.max(0,parseInt(i.qty,10)||0), c=parseFloat(i.cost)||0;
+    return {id:i.id||(Date.now().toString(36)+Math.random().toString(36).slice(2,7)), created:i.created||Date.now(), sku:i.sku, name:i.name, category:i.category||'',
+      karat:m?m[1]:'', color:'', costType:'flat', notes:[i.metal,i.stone,i.notes].filter(Boolean).join(' · '),
+      variants:[{id:Math.random().toString(36).slice(2,10), size:i.size||'One size', qty:q, low:i.low??'', price:i.price??'',
+        lots:q?[{id:Math.random().toString(36).slice(2,10),purchaseId:null,date:today,unitCost:c,qtyIn:q,qtyLeft:q,note:'Opening stock'}]:[]}]};
+  });
+}
 function normalize(obj){
-  const s = Object.assign(structuredClone(DEFAULTS), obj||{});
-  s.settings = Object.assign(structuredClone(DEFAULTS.settings), (obj&&obj.settings)||{});
+  obj = obj || {};
+  const s = Object.assign(structuredClone(DEFAULTS), obj);
+  s.settings = Object.assign(structuredClone(DEFAULTS.settings), obj.settings||{});
+  s.settings.purity = Object.assign(structuredClone(DEFAULTS.settings.purity), (obj.settings&&obj.settings.purity)||{});
+  if(!Array.isArray(obj.products) && Array.isArray(obj.items)) s.products = migrateItems(obj.items);
+  delete s.items;
+  s.products.forEach(p=>{ p.variants=p.variants||[]; p.variants.forEach(v=>{ v.lots=v.lots||[]; }); });
+  s.log.forEach(l=>{ if(l.productId==null && l.itemId) l.productId=l.itemId; });
   return s;
 }
 function remoteJSON(){ const {draft, draftDate, ...rest} = state; return JSON.stringify(rest); }
@@ -509,101 +592,127 @@ const $ = id => document.getElementById(id);
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const money = n => (n===''||n==null||isNaN(n)) ? '' : '$' + Number(n).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
-const num = v => { const n = parseFloat(v); return isNaN(n) ? 0 : n; };
+const num = v => { const n = parseFloat(String(v??'').replace(/[$,]/g,'')); return isNaN(n) ? 0 : n; };
 const intv = v => { const n = parseInt(v,10); return isNaN(n) ? 0 : n; };
+const r4 = n => Math.round(n*10000)/10000;
+const OZ = 31.1035;
 function localDate(d){ const z = new Date(d); z.setMinutes(z.getMinutes()-z.getTimezoneOffset()); return z.toISOString().slice(0,10); }
-function yesterday(){ const d = new Date(); d.setDate(d.getDate()-1); return localDate(d); }
-function fmtDate(iso){ if(!iso) return ''; const [y,m,d]=iso.split('-'); return new Date(+y,+m-1,+d).toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric',year:'numeric'}); }
+function fmtDate(iso){ if(!iso) return ''; const [y,m,d]=iso.split('-'); return new Date(+y,+m-1,+d).toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'}); }
 function fmtTs(ts){ return new Date(ts).toLocaleString(undefined,{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'}); }
-function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('show'),2600); }
-const itemById = id => state.items.find(i=>i.id===id);
-const lowOf = it => (it.low===''||it.low==null) ? state.settings.lowDefault : intv(it.low);
-function status(it){ if(it.qty<=0) return 'out'; if(it.qty<=lowOf(it)) return 'low'; return 'ok'; }
+function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('show'),3000); }
+const KARATS=['10','14','18','22','24'];
+const purity = k => num((state.settings.purity||{})[k]);
+const gramPrice = (spot,k) => spot>0 && purity(k) ? spot/OZ*purity(k) : 0;
+const karatLabel = k => k ? k+'K' : '';
+const prodById = id => state.products.find(p=>p.id===id);
+function findVariant(pid,vid){ const p=prodById(pid); return p ? [p, p.variants.find(v=>v.id===vid)] : [null,null]; }
+const lowOf = v => (v.low===''||v.low==null) ? state.settings.lowDefault : intv(v.low);
+function vstatus(v){ if(v.qty<=0) return 'out'; if(v.qty<=lowOf(v)) return 'low'; return 'ok'; }
+const pqty = p => p.variants.reduce((s,v)=>s+Math.max(0,v.qty),0);
+const vvalue = v => v.lots.reduce((s,l)=>s+l.qtyLeft*l.unitCost,0);
+const pvalue = p => p.variants.reduce((s,v)=>s+vvalue(v),0);
+function openLots(v){ return v.lots.map((l,i)=>[l,i]).filter(([l])=>l.qtyLeft>0).sort((a,b)=>a[0].date<b[0].date?-1:a[0].date>b[0].date?1:a[1]-b[1]).map(x=>x[0]); }
+function nextCost(v){ const l=openLots(v)[0]; return l?l.unitCost:(v.lots.length?v.lots[v.lots.length-1].unitCost:null); }
+function consume(v,n){ // FIFO: take n units from oldest lots, return total cost
+  let left=n, cost=0;
+  for(const l of openLots(v)){ if(!left) break; const t=Math.min(left,l.qtyLeft); l.qtyLeft-=t; left-=t; cost+=t*l.unitCost; }
+  v.qty-=n; return r4(cost);
+}
 function logEntry(o){ state.log.unshift(Object.assign({id:uid(), ts:Date.now()}, o)); }
+function pill(s){ return s==='out'?'<span class="pill out">Out</span>':s==='low'?'<span class="pill low">Low</span>':'<span class="pill ok">OK</span>'; }
+function sortSizes(arr){ return arr.slice().sort((a,b)=>String(a.size).localeCompare(String(b.size),undefined,{numeric:true})); }
+function parseSizes(txt){ return [...new Set(String(txt||'').split(/[\n,]+/).map(s=>s.trim()).filter(Boolean))]; }
 
 /* ---------- tabs ---------- */
 document.querySelectorAll('#nav button').forEach(b=>b.onclick=()=>showTab(b.dataset.tab));
 function showTab(t){
   document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active', b.dataset.tab===t));
-  ['inventory','history','backup'].forEach(x=>$('tab-'+x).classList.toggle('hidden', x!==t));
+  ['inventory','purchases','history','backup'].forEach(x=>$('tab-'+x).classList.toggle('hidden', x!==t));
   renderAll();
 }
 
 /* ---------- inventory ---------- */
-let sortKey='sku', sortDir=1;
-document.querySelectorAll('th.sort').forEach(th=>th.onclick=()=>{
-  const k=th.dataset.sort; if(sortKey===k) sortDir*=-1; else {sortKey=k; sortDir=1;} renderInventory();
-});
+const expanded=new Set(); let allOpen=false;
+function toggleProd(id){ expanded.has(id)?expanded.delete(id):expanded.add(id); renderInventory(); }
+function toggleAll(){ allOpen=!allOpen; expanded.clear(); if(allOpen) state.products.forEach(p=>expanded.add(p.id)); renderInventory(); }
 function renderStats(){
-  const items=state.items;
-  const units=items.reduce((s,i)=>s+Math.max(0,i.qty),0);
-  const low=items.filter(i=>status(i)!=='ok').length;
-  const cost=items.reduce((s,i)=>s+Math.max(0,i.qty)*num(i.cost),0);
-  const retail=items.reduce((s,i)=>s+Math.max(0,i.qty)*num(i.price),0);
+  const P=state.products, V=P.flatMap(p=>p.variants);
+  const units=V.reduce((s,v)=>s+Math.max(0,v.qty),0);
+  const low=V.filter(v=>vstatus(v)!=='ok').length;
+  const cost=P.reduce((s,p)=>s+pvalue(p),0);
+  const retail=V.reduce((s,v)=>s+Math.max(0,v.qty)*num(v.price),0);
   const today=localDate(new Date());
-  const shippedToday=state.log.filter(l=>l.type==='ship'&&!l.undone&&localDate(l.ts)===today).reduce((s,l)=>s+(-l.delta),0);
+  const soldToday=state.log.filter(l=>l.type==='ship'&&localDate(l.ts)===today).reduce((s,l)=>s+(-l.delta),0);
   $('stats').innerHTML=`
-    <div class="stat"><div class="lbl">Items (SKUs)</div><div class="val">${items.length}</div></div>
+    <div class="stat"><div class="lbl">SKUs</div><div class="val">${P.length}</div></div>
+    <div class="stat"><div class="lbl">Sizes tracked</div><div class="val">${V.length}</div></div>
     <div class="stat"><div class="lbl">Units in stock</div><div class="val">${units.toLocaleString()}</div></div>
-    <div class="stat ${low?'warn':''}"><div class="lbl">Low / out of stock</div><div class="val">${low}</div></div>
+    <div class="stat ${low?'warn':''}"><div class="lbl">Sizes low / out</div><div class="val">${low}</div></div>
     <div class="stat"><div class="lbl">Stock value (cost)</div><div class="val">${money(cost)}</div></div>
-    <div class="stat"><div class="lbl">Stock value (retail)</div><div class="val">${money(retail)}</div></div>
-    <div class="stat"><div class="lbl">Sold today</div><div class="val">${shippedToday}</div></div>`;
+    ${retail?`<div class="stat"><div class="lbl">Stock value (retail)</div><div class="val">${money(retail)}</div></div>`:''}
+    <div class="stat"><div class="lbl">Sold today</div><div class="val">${soldToday}</div></div>`;
 }
 function renderCatFilter(){
   const sel=$('catFilter'), cur=sel.value;
-  const cats=[...new Set([...state.settings.categories, ...state.items.map(i=>i.category).filter(Boolean)])];
+  const cats=[...new Set([...state.settings.categories, ...state.products.map(p=>p.category).filter(Boolean)])];
   sel.innerHTML='<option value="">All categories</option>'+cats.map(c=>`<option>${esc(c)}</option>`).join('');
   sel.value=cats.includes(cur)?cur:'';
 }
 function renderInventory(){
   renderStats();
+  $('expAllBtn').textContent=allOpen?'Hide sizes':'Show all sizes';
   const q=$('search').value.trim().toLowerCase(), cat=$('catFilter').value, sf=$('stockFilter').value;
-  let rows=state.items.filter(i=>{
-    if(cat && i.category!==cat) return false;
-    const s=status(i);
-    if(sf==='low' && s!=='low') return false;
-    if(sf==='out' && s!=='out') return false;
-    if(sf==='in' && i.qty<=0) return false;
-    if(q){ const hay=[i.sku,i.name,i.category,i.metal,i.stone,i.size,i.notes].join(' ').toLowerCase(); if(!hay.includes(q)) return false; }
-    return true;
+  const vMatch=v=> sf==='low'?vstatus(v)==='low': sf==='out'?vstatus(v)==='out': sf==='in'?v.qty>0:true;
+  const rows=[];
+  state.products.slice().sort((a,b)=>a.sku.localeCompare(b.sku,undefined,{numeric:true})).forEach(p=>{
+    if(cat && p.category!==cat) return;
+    let vs=sortSizes(p.variants).filter(vMatch);
+    if(sf && !vs.length) return;
+    if(q){
+      const head=[p.sku,p.name,p.category,karatLabel(p.karat),p.color].join(' ').toLowerCase();
+      if(!head.includes(q)){ vs=vs.filter(v=>String(v.size).toLowerCase().includes(q)); if(!vs.length) return; }
+    }
+    rows.push([p,vs]);
   });
-  rows.sort((a,b)=>{
-    let x=a[sortKey], y=b[sortKey];
-    if(sortKey==='qty'||sortKey==='price'){ x=num(x); y=num(y); return (x-y)*sortDir; }
-    return String(x||'').localeCompare(String(y||''),undefined,{numeric:true})*sortDir;
-  });
-  document.querySelectorAll('th.sort').forEach(th=>{
-    th.textContent=th.textContent.replace(/ [▲▼]$/,'');
-    if(th.dataset.sort===sortKey) th.textContent+=sortDir>0?' ▲':' ▼';
-  });
-  if(!state.items.length){
-    $('invBody').innerHTML=`<tr><td colspan="7" class="empty">No items yet. Click <b>+ Add item</b> to start, or import a spreadsheet from <b>Backup &amp; Settings</b>.</td></tr>`;
+  if(!state.products.length){
+    $('invBody').innerHTML=`<tr><td colspan="7" class="empty">No SKUs yet. Click <b>+ New SKU</b> to add one with its sizes, then add stock from the <b>Purchases</b> tab.<br>You can also import a spreadsheet under <b>Backup &amp; Settings</b>.</td></tr>`;
     return;
   }
-  if(!rows.length){ $('invBody').innerHTML=`<tr><td colspan="7" class="empty">No items match.</td></tr>`; return; }
-  $('invBody').innerHTML=rows.map(i=>{
-    const s=status(i);
-    const pill = s==='out'?'<span class="pill out">Out</span>':s==='low'?'<span class="pill low">Low</span>':'<span class="pill ok">OK</span>';
-    const sub=[i.metal,i.stone,i.size?('Size '+i.size):''].filter(Boolean).map(esc).join(' · ');
-    return `<tr>
-      <td><b>${esc(i.sku)}</b></td>
-      <td>${esc(i.name)}${sub?`<div class="muted small">${sub}</div>`:''}</td>
-      <td class="hide-sm">${esc(i.category)}</td>
-      <td class="num qty">${i.qty}</td>
-      <td class="hide-sm">${pill}</td>
-      <td class="num hide-sm">${money(i.price)}</td>
-      <td><div class="actions">
-        <button class="btn sm" onclick="openStockModal('${i.id}','sold')" ${i.qty<=0?'disabled':''}>− Sold</button>
-        <button class="btn sm" onclick="openStockModal('${i.id}','restock')">+ Stock</button>
-        <button class="btn sm" onclick="openStockModal('${i.id}','adjust')">Set count</button>
-        <button class="btn sm" onclick="openItemModal('${i.id}')">Edit</button>
+  if(!rows.length){ $('invBody').innerHTML=`<tr><td colspan="7" class="empty">Nothing matches.</td></tr>`; return; }
+  $('invBody').innerHTML=rows.map(([p,vs])=>{
+    const open=expanded.has(p.id) || !!q || !!sf;
+    const lowN=p.variants.filter(v=>vstatus(v)!=='ok').length;
+    const sub=[karatLabel(p.karat),p.color,p.costType==='gold'?'gold + labor':'flat cost'].filter(Boolean).map(esc).join(' · ');
+    let h=`<tr class="prow" onclick="toggleProd('${p.id}')">
+      <td><span class="caret">${open?'▾':'▸'}</span> <b>${esc(p.sku)}</b></td>
+      <td>${esc(p.name)}<div class="muted small">${sub}</div></td>
+      <td class="hide-sm">${esc(p.category)}</td>
+      <td class="num">${p.variants.length}${lowN?` <span class="pill low">${lowN} low</span>`:''}</td>
+      <td class="num qty">${pqty(p)}</td>
+      <td class="num hide-sm">${money(pvalue(p))}</td>
+      <td><div class="actions" onclick="event.stopPropagation()">
+        <button class="btn sm" onclick="openLotsModal('${p.id}')">Purchases</button>
+        <button class="btn sm" onclick="openProductModal('${p.id}')">Edit</button>
       </div></td></tr>`;
+    if(open){
+      h+=`<tr class="vhead"><td></td><td colspan="2">Size</td><td class="num">Status</td><td class="num">In stock</td><td class="num hide-sm">Next cost</td><td></td></tr>`;
+      h+=vs.map(v=>{ const nc=nextCost(v); return `<tr class="vrow">
+        <td></td>
+        <td colspan="2"><b>${esc(v.size)}</b>${v.price!==''&&v.price!=null?` <span class="muted small">· price ${money(v.price)}</span>`:''}</td>
+        <td class="num">${pill(vstatus(v))}</td>
+        <td class="num qty">${v.qty}</td>
+        <td class="num hide-sm">${nc!=null?money(nc):'<span class="muted">—</span>'}</td>
+        <td><div class="actions">
+          <button class="btn sm" onclick="openStockModal('${p.id}','${v.id}','sold')" ${v.qty<=0?'disabled':''}>− Sold</button>
+          <button class="btn sm" onclick="openStockModal('${p.id}','${v.id}','adjust')">Set count</button>
+        </div></td></tr>`; }).join('');
+    }
+    return h;
   }).join('');
 }
 
 /* ---------- modal ---------- */
-function openModal(html){ $('modal').innerHTML=html; $('modalBg').classList.add('open'); const f=$('modal').querySelector('input,select'); if(f) setTimeout(()=>f.focus(),30); }
+function openModal(html,wide){ $('modal').innerHTML=html; $('modal').classList.toggle('wide',!!wide); $('modalBg').classList.add('open'); const f=$('modal').querySelector('input:not([disabled]),select'); if(f) setTimeout(()=>f.focus(),30); }
 function closeModal(){ $('modalBg').classList.remove('open'); }
 document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeModal(); });
 function confirmModal(title, body, okLabel, onOk, danger){
@@ -614,98 +723,321 @@ function confirmModal(title, body, okLabel, onOk, danger){
   setTimeout(()=>$('cOk').focus(),30);
 }
 
-function openItemModal(id){
-  const it = id ? itemById(id) : {sku:'',name:'',category:'',metal:'',stone:'',size:'',qty:0,low:'',cost:'',price:'',notes:''};
-  const cats=[...new Set([...state.settings.categories, it.category].filter(Boolean))];
-  openModal(`<h3>${id?'Edit item':'Add item'}</h3>
+/* ---------- SKU (product) add / edit ---------- */
+let productModalFromPurchase=false;
+function openProductModal(id, fromPurchase){
+  productModalFromPurchase=!!fromPurchase;
+  const p = id ? prodById(id) : {sku:'',name:'',category:'',karat:'14',color:'Yellow',costType:'gold',notes:'',variants:[]};
+  const cats=[...new Set([...state.settings.categories, p.category].filter(Boolean))];
+  const colors=['Yellow','White','Rose','Two-tone','Tri-color',''];
+  const sizesHtml = id ? `
+    <div class="f" style="margin-top:14px">Sizes</div>
+    <table class="mini"><thead><tr><th>Size</th><th class="num">In stock</th><th>Price (optional)</th><th>Low alert at</th><th></th></tr></thead><tbody>
+    ${sortSizes(p.variants).map(v=>`<tr data-vid="${v.id}">
+      <td><input class="vSize" value="${esc(v.size)}"></td>
+      <td class="num">${v.qty}</td>
+      <td><input class="vPrice" type="number" step="0.01" min="0" value="${esc(v.price)}"></td>
+      <td><input class="vLow" type="number" min="0" value="${esc(v.low)}" placeholder="${state.settings.lowDefault}"></td>
+      <td>${v.qty===0&&!v.lots.some(l=>l.qtyLeft>0)?`<label class="small muted"><input type="checkbox" class="vDel"> remove</label>`:''}</td></tr>`).join('')}
+    </tbody></table>
+    <label class="f" style="margin-top:10px">Add more sizes (comma or one per line)<textarea id="fNewSizes" rows="2"></textarea></label>`
+  : `<label class="f" style="margin-top:12px">Sizes * (comma or one per line — e.g. 10mm, 12mm, 15mm)<textarea id="fNewSizes" rows="3" placeholder="10mm, 12mm, 15mm, 20mm…"></textarea></label>
+     <div class="grid2" style="margin-top:12px">
+       <label class="f">Price for every size (optional)<input id="fPriceAll" type="number" step="0.01" min="0"></label>
+       <label class="f">Low-stock alert at (optional)<input id="fLowAll" type="number" min="0" placeholder="${state.settings.lowDefault}"></label>
+     </div>`;
+  openModal(`<h3>${id?'Edit SKU':'New SKU'}</h3>
     <div class="grid2">
-      <label class="f">SKU / item code *<input id="fSku" value="${esc(it.sku)}"></label>
-      <label class="f">Category<select id="fCat"><option value=""></option>${cats.map(c=>`<option ${c===it.category?'selected':''}>${esc(c)}</option>`).join('')}</select></label>
+      <label class="f">SKU *<input id="fSku" value="${esc(p.sku)}" placeholder="e.g. ADS1059E"></label>
+      <label class="f">Category<select id="fCat"><option value=""></option>${cats.map(c=>`<option ${c===p.category?'selected':''}>${esc(c)}</option>`).join('')}</select></label>
     </div>
-    <label class="f" style="margin-top:12px">Item name *<input id="fName" value="${esc(it.name)}" placeholder="e.g. 1.5ct Oval Lab Diamond Solitaire"></label>
+    <label class="f" style="margin-top:12px">Item name *<input id="fName" value="${esc(p.name)}" placeholder="e.g. Plain gold hoops"></label>
     <div class="grid3" style="margin-top:12px">
-      <label class="f">Metal<input id="fMetal" value="${esc(it.metal)}" placeholder="14K Yellow Gold"></label>
-      <label class="f">Stone<input id="fStone" value="${esc(it.stone)}" placeholder="Lab diamond, CZ, none"></label>
-      <label class="f">Size<input id="fSize" value="${esc(it.size)}" placeholder="6.5, 18in"></label>
+      <label class="f">Karat<select id="fKarat"><option value="">Not gold / silver</option>${KARATS.map(k=>`<option value="${k}" ${k===p.karat?'selected':''}>${k}K</option>`).join('')}</select></label>
+      <label class="f">Gold color<select id="fColor">${colors.map(c=>`<option ${c===p.color?'selected':''} value="${c}">${c||'—'}</option>`).join('')}</select></label>
+      <label class="f">How cost is figured<select id="fCostType">
+        <option value="gold" ${p.costType==='gold'?'selected':''}>Gold weight + labor</option>
+        <option value="flat" ${p.costType==='flat'?'selected':''}>Flat cost per piece</option></select></label>
     </div>
-    <div class="grid3" style="margin-top:12px">
-      ${id?`<label class="f">In stock<input value="${it.qty}" disabled title="Use + Stock or Set count to change"></label>`:`<label class="f">Starting qty<input id="fQty" type="number" min="0" value="0"></label>`}
-      <label class="f">Low-stock alert at<input id="fLow" type="number" min="0" value="${esc(it.low)}" placeholder="${state.settings.lowDefault}"></label>
-      <span></span>
-    </div>
-    <div class="grid2" style="margin-top:12px">
-      <label class="f">Cost (each)<input id="fCost" type="number" step="0.01" min="0" value="${esc(it.cost)}"></label>
-      <label class="f">Price (each)<input id="fPrice" type="number" step="0.01" min="0" value="${esc(it.price)}"></label>
-    </div>
-    <label class="f" style="margin-top:12px">Notes<textarea id="fNotes" rows="2">${esc(it.notes)}</textarea></label>
+    ${sizesHtml}
+    <label class="f" style="margin-top:12px">Notes<textarea id="fNotes" rows="2">${esc(p.notes)}</textarea></label>
     <div class="err" id="fErr"></div>
     <div class="foot">
-      ${id?`<button class="btn danger" style="margin-right:auto" onclick="deleteItem('${id}')">Delete</button>`:''}
+      ${id?`<button class="btn danger" style="margin-right:auto" onclick="deleteProduct('${id}')">Delete SKU</button>`:''}
       <button class="btn" onclick="closeModal()">Cancel</button>
-      <button class="btn primary" onclick="saveItem('${id||''}')">${id?'Save':'Add item'}</button>
-    </div>`);
+      <button class="btn primary" onclick="saveProduct('${id||''}')">${id?'Save':'Add SKU'}</button>
+    </div>`, true);
 }
-function saveItem(id){
-  const sku=$('fSku').value.trim(), name=$('fName').value.trim();
-  if(!sku||!name){ $('fErr').textContent='SKU and item name are required.'; return; }
-  const dup=state.items.find(i=>i.sku.toLowerCase()===sku.toLowerCase() && i.id!==id);
-  if(dup){ $('fErr').textContent=`SKU "${sku}" is already used by ${dup.name}.`; return; }
-  const data={sku,name,category:$('fCat').value,metal:$('fMetal').value.trim(),stone:$('fStone').value.trim(),size:$('fSize').value.trim(),
-    low:$('fLow').value===''?'':intv($('fLow').value),cost:$('fCost').value===''?'':num($('fCost').value),price:$('fPrice').value===''?'':num($('fPrice').value),notes:$('fNotes').value.trim()};
-  if(id){ Object.assign(itemById(id),data); toast('Item saved'); }
-  else{
-    const it=Object.assign({id:uid(),qty:Math.max(0,intv($('fQty').value)),created:Date.now()},data);
-    state.items.push(it);
-    logEntry({type:'add',itemId:it.id,sku:it.sku,name:it.name,delta:it.qty,qtyAfter:it.qty,note:'New item'});
-    toast('Item added');
+function saveProduct(id){
+  const sku=$('fSku').value.trim(), name=$('fName').value.trim(), err=$('fErr');
+  if(!sku||!name){ err.textContent='SKU and item name are required.'; return; }
+  const dup=state.products.find(p=>p.sku.toLowerCase()===sku.toLowerCase() && p.id!==id);
+  if(dup){ err.textContent=`SKU "${sku}" already exists (${dup.name}).`; return; }
+  const costType=$('fCostType').value, karat=$('fKarat').value;
+  if(costType==='gold' && !karat){ err.textContent='Pick the karat for gold-weight items.'; return; }
+  const newSizes=parseSizes($('fNewSizes').value);
+  const data={sku,name,category:$('fCat').value,karat,color:$('fColor').value,costType,notes:$('fNotes').value.trim()};
+  if(id){
+    const p=prodById(id);
+    const rows=[...document.querySelectorAll('#modal tr[data-vid]')];
+    const names=rows.filter(r=>!r.querySelector('.vDel')?.checked).map(r=>r.querySelector('.vSize').value.trim().toLowerCase());
+    if(names.some(n=>!n)){ err.textContent='A size can\'t be blank.'; return; }
+    const all=[...names,...newSizes.map(s=>s.toLowerCase())];
+    if(new Set(all).size!==all.length){ err.textContent='Two sizes have the same name.'; return; }
+    rows.forEach(r=>{
+      const v=p.variants.find(x=>x.id===r.dataset.vid);
+      if(r.querySelector('.vDel')?.checked){ p.variants=p.variants.filter(x=>x!==v); return; }
+      v.size=r.querySelector('.vSize').value.trim();
+      v.price=r.querySelector('.vPrice').value===''?'':num(r.querySelector('.vPrice').value);
+      v.low=r.querySelector('.vLow').value===''?'':intv(r.querySelector('.vLow').value);
+    });
+    newSizes.forEach(s=>p.variants.push({id:uid(),size:s,qty:0,low:'',price:'',lots:[]}));
+    Object.assign(p,data); toast('SKU saved');
+  }else{
+    if(!newSizes.length){ err.textContent='Add at least one size (use "One size" if it has none).'; return; }
+    const price=$('fPriceAll').value===''?'':num($('fPriceAll').value), low=$('fLowAll').value===''?'':intv($('fLowAll').value);
+    const p=Object.assign({id:uid(),created:Date.now(),variants:newSizes.map(s=>({id:uid(),size:s,qty:0,low,price,lots:[]}))},data);
+    state.products.push(p);
+    logEntry({type:'add',productId:p.id,sku:p.sku,name:p.name,size:newSizes.length+' sizes',delta:0,qtyAfter:0,note:'New SKU'});
+    toast(`${sku} added with ${newSizes.length} size${newSizes.length>1?'s':''}`);
+    if(productModalFromPurchase){ save(); closeModal(); addPurchaseProduct(p.id); renderAll(); return; }
   }
   save(); closeModal(); renderAll();
 }
-function deleteItem(id){
-  const it=itemById(id);
-  confirmModal('Delete item?',`Delete <b>${esc(it.sku)} — ${esc(it.name)}</b>? Its history stays in the log.`,'Delete',()=>{
-    state.items=state.items.filter(i=>i.id!==id);
-    state.draft=state.draft.filter(d=>d.itemId!==id);
-    logEntry({type:'delete',itemId:id,sku:it.sku,name:it.name,delta:-it.qty,qtyAfter:0,note:'Item deleted'});
-    save(); renderAll(); toast('Item deleted');
+function deleteProduct(id){
+  const p=prodById(id), units=pqty(p);
+  confirmModal('Delete SKU?',`Delete <b>${esc(p.sku)} — ${esc(p.name)}</b>${units?` and its <b>${units}</b> units in stock`:''}? Purchase and sales history stays.`,'Delete',()=>{
+    state.products=state.products.filter(x=>x.id!==id);
+    if(state.draft&&state.draft.blocks) state.draft.blocks=state.draft.blocks.filter(b=>b.productId!==id);
+    logEntry({type:'delete',productId:id,sku:p.sku,name:p.name,size:'',delta:-units,qtyAfter:0,cost:r4(pvalue(p)),note:'SKU deleted'});
+    save(); renderAll(); toast('SKU deleted');
   },true);
 }
-function openStockModal(id,mode){
-  const it=itemById(id);
-  const T={restock:['Add stock','Units to add','Add stock','e.g. from supplier, invoice #',1],
-           adjust:['Set stock count','Actual count on hand','Save count','e.g. monthly count',it.qty],
-           sold:['Remove sold units','Units sold','Remove from stock','optional',1]}[mode];
+
+/* ---------- sold / set count (per size) ---------- */
+function openStockModal(pid,vid,mode){
+  const [p,v]=findVariant(pid,vid);
   const chans=state.settings.channels.map(c=>`<option>${esc(c)}</option>`).join('');
-  openModal(`<h3>${T[0]}</h3>
-    <p class="muted" style="margin-top:-6px">${esc(it.sku)} — ${esc(it.name)} · currently <b>${it.qty}</b> in stock</p>
+  const sold=mode==='sold';
+  openModal(`<h3>${sold?'Remove sold units':'Set stock count'}</h3>
+    <p class="muted" style="margin-top:-6px">${esc(p.sku)} · size <b>${esc(v.size)}</b> — ${esc(p.name)} · currently <b>${v.qty}</b> in stock</p>
     <div class="grid2">
-      <label class="f">${T[1]}<input id="sQty" type="number" min="${mode==='adjust'?0:1}" ${mode==='sold'?`max="${it.qty}"`:''} value="${T[4]}"></label>
-      ${mode==='sold'
-        ? `<label class="f">Sold on<select id="sChan">${chans}</select></label>`
-        : `<label class="f">Note (optional)<input id="sNote" placeholder="${T[3]}"></label>`}
+      <label class="f">${sold?'Units sold':'Actual count on hand'}<input id="sQty" type="number" min="${sold?1:0}" value="${sold?1:v.qty}"></label>
+      ${sold?`<label class="f">Sold on<select id="sChan">${chans}</select></label>`:`<label class="f">Note (optional)<input id="sNote" placeholder="e.g. monthly count"></label>`}
     </div>
-    ${mode==='sold'?`<label class="f" style="margin-top:12px">Order # (optional)<input id="sOrder"></label>`:''}
+    ${sold?`<label class="f" style="margin-top:12px">Order # (optional)<input id="sOrder"></label>`:''}
     <div class="err" id="sErr"></div>
     <div class="foot"><button class="btn" onclick="closeModal()">Cancel</button>
-    <button class="btn primary" onclick="applyStock('${id}','${mode}')">${T[2]}</button></div>`);
-  $('sQty').addEventListener('keydown',e=>{ if(e.key==='Enter') applyStock(id,mode); });
+    <button class="btn primary" onclick="applyStock('${pid}','${vid}','${mode}')">${sold?'Remove from stock':'Save count'}</button></div>`);
+  $('sQty').addEventListener('keydown',e=>{ if(e.key==='Enter') applyStock(pid,vid,mode); });
   setTimeout(()=>$('sQty').select(),40);
 }
-function applyStock(id,mode){
-  const it=itemById(id), raw=$('sQty').value, v=intv(raw);
-  if(raw===''||v<0){ $('sErr').textContent='Enter a number 0 or more.'; return; }
-  if(mode!=='adjust'&&v===0){ $('sErr').textContent='Enter how many units.'; return; }
-  if(mode==='sold'&&v>it.qty){ $('sErr').textContent=`Only ${it.qty} in stock. Use Set count if the number is wrong.`; return; }
-  const delta = mode==='restock' ? v : mode==='sold' ? -v : v-it.qty;
-  it.qty += delta;
-  if(mode==='sold') logEntry({type:'ship',itemId:id,sku:it.sku,name:it.name,delta,qtyAfter:it.qty,orderNo:$('sOrder').value.trim(),channel:$('sChan').value,orderDate:localDate(new Date())});
-  else logEntry({type:mode,itemId:id,sku:it.sku,name:it.name,delta,qtyAfter:it.qty,note:$('sNote').value.trim()});
+function applyStock(pid,vid,mode){
+  const [p,v]=findVariant(pid,vid), raw=$('sQty').value, n=intv(raw);
+  if(raw===''||n<0){ $('sErr').textContent='Enter a number 0 or more.'; return; }
+  const base={productId:pid,variantId:vid,sku:p.sku,name:p.name,size:v.size};
+  if(mode==='sold'){
+    if(n<1){ $('sErr').textContent='Enter how many sold.'; return; }
+    if(n>v.qty){ $('sErr').textContent=`Only ${v.qty} in stock. Use Set count if the number is wrong.`; return; }
+    const cost=consume(v,n);
+    logEntry(Object.assign(base,{type:'ship',delta:-n,qtyAfter:v.qty,cost,orderNo:$('sOrder').value.trim(),channel:$('sChan').value}));
+    toast(`Removed ${n} — ${v.qty} left · cost ${money(cost)}`+(vstatus(v)!=='ok'?' (low)':''));
+  }else{
+    const d=n-v.qty; if(!d){ closeModal(); return; }
+    let cost=0;
+    if(d<0) cost=consume(v,-d);
+    else { const uc=nextCost(v)||0; v.lots.push({id:uid(),purchaseId:null,date:localDate(new Date()),unitCost:uc,qtyIn:d,qtyLeft:d,note:'Count adjustment'}); v.qty+=d; cost=r4(uc*d); }
+    logEntry(Object.assign(base,{type:'adjust',delta:d,qtyAfter:v.qty,cost,note:$('sNote').value.trim()}));
+    toast(`Count set to ${v.qty}`);
+  }
   save(); closeModal(); renderAll();
-  toast(mode==='restock'?`Added ${v} — now ${it.qty} in stock`:mode==='sold'?`Removed ${v} — ${it.qty} left`+(status(it)!=='ok'?' (low)':''):`Count set to ${it.qty}`);
+}
+function openLotsModal(pid){
+  const p=prodById(pid);
+  const rows=[];
+  p.variants.forEach(v=>v.lots.forEach(l=>rows.push([v,l])));
+  rows.sort((a,b)=>a[1].date<b[1].date?1:a[1].date>b[1].date?-1:0);
+  const pu=id=>state.purchases.find(x=>x.id===id);
+  openModal(`<h3>${esc(p.sku)} — purchases by size</h3>
+    <p class="muted small" style="margin-top:-6px">Oldest stock is used up first when you mark items sold.</p>
+    <div class="scroll"><table class="mini"><thead><tr><th>Date</th><th>Size</th><th class="num">Bought</th><th class="num">Still in stock</th><th class="num">Cost each</th><th>From</th></tr></thead><tbody>
+    ${rows.length?rows.map(([v,l])=>{ const x=l.purchaseId&&pu(l.purchaseId);
+      return `<tr><td>${fmtDate(l.date)}</td><td>${esc(v.size)}</td><td class="num">${l.qtyIn}</td><td class="num">${l.qtyLeft}</td><td class="num">${money(l.unitCost)}</td>
+      <td class="small muted">${x?esc([x.supplier,x.invoice?('#'+x.invoice):'',x.spot?('spot '+money(x.spot)):''].filter(Boolean).join(' · ')):esc(l.note||'')}</td></tr>`;}).join('')
+      :'<tr><td colspan="6" class="empty">No stock added yet.</td></tr>'}
+    </tbody></table></div>
+    <div class="foot"><button class="btn primary" onclick="closeModal()">Close</button></div>`, true);
+}
+
+/* ---------- purchases ---------- */
+function blankDraft(){ return {date:localDate(new Date()),supplier:'',invoice:'',spot:state.settings.lastSpot||'',note:'',blocks:[]}; }
+function draft(){ if(!state.draft||Array.isArray(state.draft)||!state.draft.blocks) state.draft=blankDraft(); return state.draft; }
+function findProduct(text){
+  const t=String(text||'').trim().toLowerCase(); if(!t) return null;
+  const skuPart=t.split(' — ')[0].trim();
+  return state.products.find(p=>p.sku.toLowerCase()===skuPart)
+    || (()=>{ const m=state.products.filter(p=>(p.sku+' '+p.name).toLowerCase().includes(t)); return m.length===1?m[0]:null; })();
+}
+function addPurchaseProduct(pid){
+  const d=draft(); $('pErr').textContent='';
+  const p=pid?prodById(pid):findProduct($('pPick').value);
+  if(!p){ $('pErr').textContent=$('pPick').value.trim()?'No single SKU matches. Pick one from the list, or click + New SKU.':'Type a SKU first.'; return; }
+  if(d.blocks.some(b=>b.productId===p.id)){ $('pErr').textContent=`${p.sku} is already on this purchase.`; return; }
+  d.blocks.push({productId:p.id,karat:p.karat||'14',costType:p.costType,labor:'',rows:{}});
+  $('pPick').value=''; save(); renderPurchases();
+  setTimeout(()=>{ const el=document.querySelector(`#pBlocks .pblock:last-child input[data-f="qty"]`); if(el) el.focus(); },30);
+}
+function removeBlock(i){ draft().blocks.splice(i,1); save(); renderPurchases(); }
+function clearPurchaseDraft(){
+  confirmModal('Clear this purchase?','Remove everything you\'ve typed on this purchase? Nothing has been added to stock yet.','Clear',()=>{ state.draft=blankDraft(); save(); renderPurchases(); },true);
+}
+function lineCalc(d,b,row){
+  const qty=intv(row.qty);
+  if(b.costType==='gold'){
+    const w=num(row.weight), gp=gramPrice(num(d.spot),b.karat);
+    const labor=row.labor!==undefined&&row.labor!==''?num(row.labor):num(b.labor);
+    const goldEach=qty?w/qty*gp:0, unit=goldEach+labor;
+    return {qty,weight:w,labor,goldEach,unit,total:unit*qty};
+  }
+  const unit=num(row.cost); return {qty,unit,total:unit*qty};
+}
+function renderRates(){
+  const d=draft(), spot=num(d.spot);
+  const ks=[...new Set(d.blocks.filter(b=>b.costType==='gold').map(b=>b.karat))];
+  $('pRates').innerHTML= spot>0
+    ? `Gold today: <b>${money(spot/OZ)}</b>/g pure` + (ks.length?' · '+ks.sort().map(k=>`${k}K <b>${money(gramPrice(spot,k))}</b>/g`).join(' · '):'')
+    : (ks.length?'<span style="color:var(--red)">Enter the gold spot price to figure costs.</span>':'');
+}
+function renderPurchases(){
+  const d=draft();
+  ['date','supplier','invoice','spot','note'].forEach(k=>{ const el=document.querySelector(`[data-h="${k}"]`); if(el && document.activeElement!==el) el.value=d[k]??''; });
+  $('prodList').innerHTML=state.products.slice().sort((a,b)=>a.sku.localeCompare(b.sku,undefined,{numeric:true})).map(p=>`<option value="${esc(p.sku)} — ${esc(p.name)}"></option>`).join('');
+  $('supList').innerHTML=[...new Set(state.purchases.map(x=>x.supplier).filter(Boolean))].map(s=>`<option value="${esc(s)}"></option>`).join('');
+  d.blocks=d.blocks.filter(b=>prodById(b.productId));
+  $('pBlocks').innerHTML=d.blocks.map((b,bi)=>{
+    const p=prodById(b.productId), gold=b.costType==='gold';
+    const head=`<div class="pbhead">
+        <div><b>${esc(p.sku)}</b> — ${esc(p.name)}</div>
+        <div class="pbctl">
+          <select data-b="${bi}" data-bf="costType"><option value="gold" ${gold?'selected':''}>Gold weight + labor</option><option value="flat" ${!gold?'selected':''}>Flat cost</option></select>
+          ${gold?`<select data-b="${bi}" data-bf="karat">${KARATS.map(k=>`<option value="${k}" ${k===b.karat?'selected':''}>${k}K</option>`).join('')}</select>
+          <label class="small">Labor / pair (all sizes) <input data-b="${bi}" data-bf="labor" type="number" step="0.01" min="0" value="${esc(b.labor)}" style="width:90px"></label>`:''}
+          <button class="btn sm danger" onclick="removeBlock(${bi})">Remove</button>
+        </div></div>`;
+    const th=gold?`<tr><th>Size</th><th class="num">In stock</th><th>Qty bought</th><th>Total gold weight (g)</th><th>Labor / pair</th><th class="num">Gold / pair</th><th class="num">Cost / pair</th><th class="num">Line total</th></tr>`
+                 :`<tr><th>Size</th><th class="num">In stock</th><th>Qty bought</th><th>Cost each</th><th class="num">Line total</th></tr>`;
+    const rows=sortSizes(p.variants).map(v=>{
+      const r=b.rows[v.id]||{}; const id=`${bi}-${v.id}`;
+      return gold?`<tr><td><b>${esc(v.size)}</b></td><td class="num muted">${v.qty}</td>
+          <td><input data-b="${bi}" data-v="${v.id}" data-f="qty" type="number" min="0" value="${esc(r.qty)}" class="w70"></td>
+          <td><input data-b="${bi}" data-v="${v.id}" data-f="weight" type="number" step="0.01" min="0" value="${esc(r.weight)}" class="w90"></td>
+          <td><input data-b="${bi}" data-v="${v.id}" data-f="labor" type="number" step="0.01" min="0" value="${esc(r.labor)}" placeholder="${esc(b.labor)}" class="w90"></td>
+          <td class="num" id="g-${id}"></td><td class="num" id="u-${id}"></td><td class="num" id="t-${id}"></td></tr>`
+        :`<tr><td><b>${esc(v.size)}</b></td><td class="num muted">${v.qty}</td>
+          <td><input data-b="${bi}" data-v="${v.id}" data-f="qty" type="number" min="0" value="${esc(r.qty)}" class="w70"></td>
+          <td><input data-b="${bi}" data-v="${v.id}" data-f="cost" type="number" step="0.01" min="0" value="${esc(r.cost)}" class="w90"></td>
+          <td class="num" id="t-${id}"></td></tr>`;
+    }).join('');
+    return `<div class="pblock">${head}<div class="scroll"><table class="mini">${th}${rows}<tr class="sub"><td colspan="${gold?7:4}" class="num">Subtotal</td><td class="num" id="bs-${bi}"></td></tr></table></div></div>`;
+  }).join('') || `<p class="empty">No items on this purchase yet. Add a SKU above — every size shows up so you can fill in what you bought.</p>`;
+  updatePurchaseTotals();
+  renderPurchaseHistory();
+}
+function updatePurchaseTotals(){
+  const d=draft(); let units=0,total=0;
+  d.blocks.forEach((b,bi)=>{
+    const p=prodById(b.productId); let sub=0;
+    p.variants.forEach(v=>{
+      const c=lineCalc(d,b,b.rows[v.id]||{}), id=`${bi}-${v.id}`;
+      const show=c.qty>0;
+      if(b.costType==='gold'){ $('g-'+id).textContent=show?money(c.goldEach):''; $('u-'+id).textContent=show?money(c.unit):''; }
+      $('t-'+id).textContent=show?money(c.total):'';
+      units+=c.qty; sub+=c.total;
+    });
+    $('bs-'+bi).textContent=money(sub); total+=sub;
+  });
+  $('pTotals').innerHTML=units?`<b>${units}</b> units · total <b>${money(total)}</b>`:'';
+  renderRates();
+}
+document.addEventListener('input',e=>{
+  const el=e.target; if(!el.closest||!el.closest('#tab-purchases')) return;
+  const d=draft();
+  if(el.dataset.h){ d[el.dataset.h]=el.value; save(); updatePurchaseTotals(); return; }
+  if(el.dataset.b===undefined) return;
+  const b=d.blocks[+el.dataset.b]; if(!b) return;
+  if(el.dataset.bf){ b[el.dataset.bf]=el.value; save(); if(el.dataset.bf==='labor') updatePurchaseTotals(); else renderPurchases(); return; }
+  (b.rows[el.dataset.v]=b.rows[el.dataset.v]||{})[el.dataset.f]=el.value; save(); updatePurchaseTotals();
+});
+function savePurchase(){
+  const d=draft(), err=$('pErr'); err.textContent='';
+  if(!d.date){ err.textContent='Enter the date you bought it.'; return; }
+  const lines=[]; const problems=[];
+  d.blocks.forEach(b=>{
+    const p=prodById(b.productId);
+    sortSizes(p.variants).forEach(v=>{
+      const row=b.rows[v.id]||{}, c=lineCalc(d,b,row);
+      if(!c.qty){ if(num(row.weight)||num(row.cost)) problems.push(`${p.sku} ${v.size}: has a weight/cost but no quantity`); return; }
+      if(b.costType==='gold'){
+        if(!(num(d.spot)>0)) problems.push('Enter the gold spot price');
+        if(!(c.weight>0)) problems.push(`${p.sku} ${v.size}: enter the total gold weight`);
+      } else if(!(c.unit>0)) problems.push(`${p.sku} ${v.size}: enter the cost each`);
+      lines.push({productId:p.id,variantId:v.id,sku:p.sku,name:p.name,size:v.size,costType:b.costType,karat:b.costType==='gold'?b.karat:'',
+        qty:c.qty,weight:c.weight??null,labor:c.labor??null,goldEach:c.goldEach!=null?r4(c.goldEach):null,unitCost:r4(c.unit),total:r4(c.total)});
+    });
+  });
+  if(problems.length){ err.innerHTML=[...new Set(problems)].slice(0,6).map(esc).join('<br>'); return; }
+  if(!lines.length){ err.textContent='Enter the quantity bought for at least one size.'; return; }
+  const units=lines.reduce((s,l)=>s+l.qty,0), total=r4(lines.reduce((s,l)=>s+l.total,0));
+  confirmModal('Save purchase?',`Add <b>${units}</b> units (${money(total)}) from ${esc(d.supplier||'this purchase')} on <b>${fmtDate(d.date)}</b> to stock?`,'Save & add to stock',()=>{
+    const pu={id:uid(),created:Date.now(),date:d.date,supplier:d.supplier.trim(),invoice:d.invoice.trim(),spot:num(d.spot)||null,note:(d.note||'').trim(),lines,units,total};
+    state.purchases.unshift(pu);
+    lines.forEach(l=>{
+      const [p,v]=findVariant(l.productId,l.variantId);
+      v.lots.push({id:uid(),purchaseId:pu.id,date:pu.date,unitCost:l.unitCost,qtyIn:l.qty,qtyLeft:l.qty});
+      v.qty+=l.qty;
+      logEntry({type:'purchase',productId:p.id,variantId:v.id,purchaseId:pu.id,sku:p.sku,name:p.name,size:v.size,delta:l.qty,qtyAfter:v.qty,cost:l.total,unitCost:l.unitCost,
+        note:[pu.supplier,pu.invoice?'#'+pu.invoice:'',pu.spot&&l.costType==='gold'?`${l.karat}K, ${l.weight}g, spot ${money(pu.spot)}`:''].filter(Boolean).join(' · ')});
+    });
+    if(pu.spot) state.settings.lastSpot=pu.spot;
+    state.draft=blankDraft();
+    save(); renderAll(); toast(`Purchase saved — ${units} units added`);
+  });
+}
+function renderPurchaseHistory(){
+  const list=state.purchases;
+  if(!list.length){ $('purBody').innerHTML=`<tr><td colspan="8" class="empty">No purchases yet.</td></tr>`; return; }
+  $('purBody').innerHTML=list.slice(0,300).map(x=>`<tr class="${x.undone?'strike':''}">
+    <td>${fmtDate(x.date)}</td><td>${esc(x.supplier)}</td><td class="hide-sm">${esc(x.invoice)}</td>
+    <td class="num">${x.spot?money(x.spot):'—'}</td><td class="num">${new Set(x.lines.map(l=>l.productId)).size}</td>
+    <td class="num">${x.units}</td><td class="num"><b>${money(x.total)}</b></td>
+    <td class="num"><button class="btn sm" onclick="viewPurchase('${x.id}')">View</button>${x.undone?' <span class="muted small">Undone</span>':` <button class="btn sm danger" onclick="undoPurchase('${x.id}')">Undo</button>`}</td></tr>`).join('');
+}
+function viewPurchase(id){
+  const x=state.purchases.find(p=>p.id===id);
+  openModal(`<h3>Purchase — ${fmtDate(x.date)}</h3>
+    <p class="muted" style="margin-top:-6px">${esc([x.supplier,x.invoice?'Invoice #'+x.invoice:'',x.spot?'Gold spot '+money(x.spot)+'/oz':''].filter(Boolean).join(' · '))}</p>
+    <div class="scroll"><table class="mini"><thead><tr><th>SKU</th><th>Size</th><th class="num">Qty</th><th class="num">Gold wt (g)</th><th class="num">Gold / pair</th><th class="num">Labor / pair</th><th class="num">Cost each</th><th class="num">Total</th></tr></thead><tbody>
+    ${x.lines.map(l=>`<tr><td><b>${esc(l.sku)}</b>${l.karat?` <span class="muted small">${l.karat}K</span>`:''}</td><td>${esc(l.size)}</td><td class="num">${l.qty}</td>
+      <td class="num">${l.costType==='gold'?l.weight:'—'}</td><td class="num">${l.costType==='gold'?money(l.goldEach):'—'}</td><td class="num">${l.costType==='gold'?money(l.labor):'—'}</td>
+      <td class="num">${money(l.unitCost)}</td><td class="num">${money(l.total)}</td></tr>`).join('')}
+    <tr class="sub"><td colspan="2">Total</td><td class="num">${x.units}</td><td colspan="4"></td><td class="num"><b>${money(x.total)}</b></td></tr>
+    </tbody></table></div>${x.note?`<p class="small muted">${esc(x.note)}</p>`:''}
+    <div class="foot"><button class="btn primary" onclick="closeModal()">Close</button></div>`, true);
+}
+function undoPurchase(id){
+  const x=state.purchases.find(p=>p.id===id);
+  const lots=[]; state.products.forEach(p=>p.variants.forEach(v=>v.lots.forEach(l=>{ if(l.purchaseId===id) lots.push([p,v,l]); })));
+  if(lots.some(([,,l])=>l.qtyLeft<l.qtyIn)){ toast('Some of these pieces were already sold or counted, so this purchase can\'t be undone. Use Set count instead.'); return; }
+  confirmModal('Undo purchase?',`Take the <b>${x.units}</b> units from this purchase back out of stock?`,'Undo purchase',()=>{
+    lots.forEach(([p,v,l])=>{ v.qty-=l.qtyIn; v.lots=v.lots.filter(z=>z!==l);
+      logEntry({type:'undo',productId:p.id,variantId:v.id,purchaseId:id,sku:p.sku,name:p.name,size:v.size,delta:-l.qtyIn,qtyAfter:v.qty,cost:r4(l.qtyIn*l.unitCost),note:'Purchase undone'}); });
+    x.undone=true; save(); renderAll(); toast('Purchase undone');
+  },true);
 }
 
 /* ---------- history ---------- */
-const TYPE_LBL={ship:'Sold',restock:'Restocked',adjust:'Count set',add:'Item added',delete:'Deleted',undo:'Undone'};
+const TYPE_LBL={purchase:'Bought',ship:'Sold',adjust:'Count set',add:'SKU added',delete:'Deleted',undo:'Undone',restock:'Restocked'};
+const TYPE_PILL={purchase:'restock',ship:'ship',adjust:'adjust',add:'add',delete:'delete',undo:'undo',restock:'restock'};
 function filteredHistory(){
   const q=$('hSearch').value.trim().toLowerCase(), t=$('hType').value, f=$('hFrom').value, to=$('hTo').value;
   return state.log.filter(l=>{
@@ -713,20 +1045,20 @@ function filteredHistory(){
     const d=localDate(l.ts);
     if(f && d<f) return false;
     if(to && d>to) return false;
-    if(q && ![l.sku,l.name,l.orderNo,l.channel,l.note].join(' ').toLowerCase().includes(q)) return false;
+    if(q && ![l.sku,l.size,l.name,l.orderNo,l.channel,l.note].join(' ').toLowerCase().includes(q)) return false;
     return true;
   });
 }
 function renderHistory(){
   const rows=filteredHistory();
-  if(!rows.length){ $('histBody').innerHTML=`<tr><td colspan="7" class="empty">No history yet.</td></tr>`; return; }
+  if(!rows.length){ $('histBody').innerHTML=`<tr><td colspan="9" class="empty">No history yet.</td></tr>`; return; }
   $('histBody').innerHTML=rows.slice(0,500).map(l=>{
-    const det=[ l.orderNo?'Order '+l.orderNo:'', l.channel, l.note, l.undone?'(undone)':''].filter(Boolean).map(esc).join(' · ');
-    return `<tr class="${l.undone?'strike':''}"><td class="small">${fmtTs(l.ts)}</td><td><span class="pill ${l.type}">${TYPE_LBL[l.type]||l.type}</span></td>
-      <td><b>${esc(l.sku)}</b></td><td>${esc(l.name)}</td>
+    const det=[l.orderNo?'Order '+l.orderNo:'', l.channel, l.note].filter(Boolean).map(esc).join(' · ');
+    return `<tr><td class="small">${fmtTs(l.ts)}</td><td><span class="pill ${TYPE_PILL[l.type]||''}">${TYPE_LBL[l.type]||l.type}</span></td>
+      <td><b>${esc(l.sku)}</b></td><td>${esc(l.size)}</td><td class="hide-sm">${esc(l.name)}</td>
       <td class="num" style="font-weight:600;color:${l.delta<0?'var(--red)':l.delta>0?'var(--green)':'inherit'}">${l.delta>0?'+':''}${l.delta}</td>
-      <td class="num">${l.qtyAfter}</td><td class="hide-sm small muted">${det}</td></tr>`;
-  }).join('') + (rows.length>500?`<tr><td colspan="7" class="muted small">Showing newest 500 of ${rows.length}. Export CSV for all.</td></tr>`:'');
+      <td class="num">${l.qtyAfter??''}</td><td class="num">${l.cost?money(l.cost):''}</td><td class="hide-sm small muted">${det}</td></tr>`;
+  }).join('') + (rows.length>500?`<tr><td colspan="9" class="muted small">Showing newest 500 of ${rows.length}. Export CSV for all.</td></tr>`:'');
 }
 
 /* ---------- backup / CSV ---------- */
@@ -736,34 +1068,45 @@ function download(name, text, type){
 }
 function downloadBackup(){
   state.lastBackup=Date.now(); save();
-  download(`gb-inventory-backup-${localDate(new Date())}.json`, JSON.stringify(Object.assign({app:'gb-inventory',version:1},state),null,1),'application/json');
+  const {draft:_d, draftDate:_dd, ...rest}=state;
+  download(`gb-inventory-backup-${localDate(new Date())}.json`, JSON.stringify(Object.assign({app:'gb-inventory',version:2},rest),null,1),'application/json');
   renderAll(); toast('Backup downloaded');
 }
 function restoreBackup(input){
   const f=input.files[0]; input.value=''; if(!f) return;
   f.text().then(t=>{
     let d; try{ d=JSON.parse(t); }catch(e){ toast('That file is not a valid backup'); return; }
-    if(!Array.isArray(d.items)){ toast('That file is not a valid backup'); return; }
-    confirmModal('Restore backup?',`This replaces everything here with the backup (<b>${d.items.length}</b> items, <b>${(d.log||[]).length}</b> history entries).`,'Restore',()=>{
-      state=Object.assign(structuredClone(DEFAULTS),d); state.settings=Object.assign(structuredClone(DEFAULTS.settings),d.settings||{});
-      delete state.app; delete state.version;
+    if(!Array.isArray(d.products)&&!Array.isArray(d.items)){ toast('That file is not a valid backup'); return; }
+    const n=normalize(d);
+    confirmModal('Restore backup?',`This replaces everything on every device with the backup (<b>${n.products.length}</b> SKUs, <b>${n.purchases.length}</b> purchases).`,'Restore',()=>{
+      const keep=state.draft; state=n; state.draft=keep; delete state.app; delete state.version;
       save(); renderAll(); toast('Backup restored');
     },true);
   });
 }
 function csvCell(v){ v=String(v??''); return /[",\n\r]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; }
 function toCSV(rows){ return rows.map(r=>r.map(csvCell).join(',')).join('\r\n'); }
-const COLS=['sku','name','category','metal','stone','size','qty','low','cost','price','notes'];
+const IMPORT_COLS=['sku','name','category','karat','color','cost_type','size','qty','unit_cost','price','low'];
 function exportInventoryCSV(){
-  download(`gb-inventory-${localDate(new Date())}.csv`, toCSV([COLS,...state.items.map(i=>COLS.map(c=>i[c]))]),'text/csv');
+  const rows=[['sku','name','category','karat','color','cost_type','size','qty','next_unit_cost','stock_value','price','low']];
+  state.products.forEach(p=>sortSizes(p.variants).forEach(v=>rows.push([p.sku,p.name,p.category,p.karat?p.karat+'K':'',p.color,p.costType,v.size,v.qty,nextCost(v)??'',r4(vvalue(v)).toFixed(2),v.price,v.low])));
+  download(`gb-inventory-${localDate(new Date())}.csv`, toCSV(rows),'text/csv');
 }
 function downloadTemplateCSV(){
-  download('gb-inventory-import-template.csv', toCSV([COLS,['ER-OV-150','1.5ct Oval Lab Diamond Solitaire','Engagement Rings','14K Yellow Gold','Lab diamond','7',3,1,'','','Example row — delete me']]),'text/csv');
+  download('gb-inventory-import-template.csv', toCSV([IMPORT_COLS,
+    ['ADS1059E','Plain gold hoops','Earrings','14','Yellow','gold','10mm',6,48.50,'',2],
+    ['ADS1059E','Plain gold hoops','Earrings','14','Yellow','gold','15mm',4,61.20,'',2],
+    ['SLV200','Silver chain','Necklaces','','','flat','18in',10,8.00,'','']]),'text/csv');
+}
+function exportPurchasesCSV(){
+  const rows=[['date','supplier','invoice','gold_spot_per_oz','sku','item','size','karat','cost_type','qty','total_gold_weight_g','gold_per_pair','labor_per_pair','cost_each','line_total','undone']];
+  state.purchases.forEach(x=>x.lines.forEach(l=>rows.push([x.date,x.supplier,x.invoice,x.spot??'',l.sku,l.name,l.size,l.karat?l.karat+'K':'',l.costType,l.qty,l.weight??'',l.goldEach!=null?l.goldEach.toFixed(2):'',l.labor??'',l.unitCost.toFixed(2),l.total.toFixed(2),x.undone?'yes':''])));
+  download(`gb-purchases-${localDate(new Date())}.csv`, toCSV(rows),'text/csv');
 }
 function exportHistoryCSV(){
   const rows=filteredHistory();
-  download(`gb-inventory-history-${localDate(new Date())}.csv`, toCSV([['date','time','type','sku','item','change','stock_after','orders_from','order_no','sold_on','note','undone'],
-    ...rows.map(l=>[localDate(l.ts),new Date(l.ts).toLocaleTimeString(),TYPE_LBL[l.type]||l.type,l.sku,l.name,l.delta,l.qtyAfter,l.orderDate||'',l.orderNo||'',l.channel||'',l.note||'',l.undone?'yes':''])]),'text/csv');
+  download(`gb-inventory-history-${localDate(new Date())}.csv`, toCSV([['date','time','type','sku','size','item','change','stock_after','cost','order_no','sold_on','note'],
+    ...rows.map(l=>[localDate(l.ts),new Date(l.ts).toLocaleTimeString(),TYPE_LBL[l.type]||l.type,l.sku,l.size||'',l.name,l.delta,l.qtyAfter??'',l.cost!=null?Number(l.cost).toFixed(2):'',l.orderNo||'',l.channel||'',l.note||''])]),'text/csv');
 }
 function parseCSV(text){
   const rows=[]; let row=[], cell='', q=false;
@@ -783,36 +1126,37 @@ function importCSV(input){
   f.text().then(t=>{
     const rows=parseCSV(t.replace(/^﻿/,''));
     if(rows.length<2){ toast('No rows found in that file'); return; }
-    const head=rows[0].map(h=>h.trim().toLowerCase());
+    const head=rows[0].map(h=>h.trim().toLowerCase().replace(/\s+/g,'_'));
     const idx=c=>head.indexOf(c);
-    if(idx('sku')<0||idx('name')<0){ toast('CSV needs at least "sku" and "name" columns'); return; }
-    let added=0, updated=0, skipped=0;
+    if(idx('sku')<0||idx('size')<0){ toast('CSV needs at least "sku" and "size" columns'); return; }
+    let newP=0,newV=0,stock=0,skipped=0; const today=localDate(new Date());
     rows.slice(1).forEach(r=>{
-      const g=c=>idx(c)>=0?(r[idx(c)]||'').trim():undefined;
-      const sku=g('sku'), name=g('name');
-      if(!sku||!name){ skipped++; return; }
-      const data={sku,name};
-      ['category','metal','stone','size','notes'].forEach(c=>{ if(g(c)!==undefined) data[c]=g(c); });
-      ['cost','price'].forEach(c=>{ const v=g(c); if(v!==undefined) data[c]=v===''?'':num(v.replace(/[$,]/g,'')); });
-      if(g('low')!==undefined) data.low=g('low')===''?'':intv(g('low'));
-      const qty=g('qty')!==undefined&&g('qty')!==''?Math.max(0,intv(g('qty'))):undefined;
-      const ex=state.items.find(i=>i.sku.toLowerCase()===sku.toLowerCase());
-      if(ex){
-        Object.assign(ex,data);
-        if(qty!==undefined&&qty!==ex.qty){ const d=qty-ex.qty; ex.qty=qty; logEntry({type:'adjust',itemId:ex.id,sku:ex.sku,name:ex.name,delta:d,qtyAfter:qty,note:'CSV import'}); }
-        updated++;
-      }else{
-        const it=Object.assign({id:uid(),category:'',metal:'',stone:'',size:'',low:'',cost:'',price:'',notes:'',created:Date.now()},data,{qty:qty||0});
-        state.items.push(it); logEntry({type:'add',itemId:it.id,sku:it.sku,name:it.name,delta:it.qty,qtyAfter:it.qty,note:'CSV import'}); added++;
+      const g=c=>idx(c)>=0?(r[idx(c)]||'').trim():'';
+      const sku=g('sku'), size=g('size')||'One size';
+      if(!sku){ skipped++; return; }
+      let p=state.products.find(x=>x.sku.toLowerCase()===sku.toLowerCase());
+      const karat=g('karat').replace(/k$/i,''), ct=/^f/i.test(g('cost_type'))?'flat':/^g/i.test(g('cost_type'))?'gold':(karat?'gold':'flat');
+      if(!p){ p={id:uid(),created:Date.now(),sku,name:g('name')||sku,category:g('category'),karat:KARATS.includes(karat)?karat:'',color:g('color'),costType:ct,notes:'',variants:[]}; state.products.push(p); newP++;
+        logEntry({type:'add',productId:p.id,sku:p.sku,name:p.name,size:'',delta:0,qtyAfter:0,note:'CSV import'}); }
+      else { if(g('name')) p.name=g('name'); if(g('category')) p.category=g('category'); if(KARATS.includes(karat)) p.karat=karat; if(g('color')) p.color=g('color'); if(g('cost_type')) p.costType=ct; }
+      let v=p.variants.find(x=>String(x.size).toLowerCase()===size.toLowerCase());
+      if(!v){ v={id:uid(),size,qty:0,low:'',price:'',lots:[]}; p.variants.push(v); newV++; }
+      if(g('price')!=='') v.price=num(g('price')); if(g('low')!=='') v.low=intv(g('low'));
+      if(g('qty')!==''){
+        const target=Math.max(0,intv(g('qty'))), d=target-v.qty;
+        if(d>0){ const uc=g('unit_cost')!==''?num(g('unit_cost')):(nextCost(v)||0); v.lots.push({id:uid(),purchaseId:null,date:today,unitCost:uc,qtyIn:d,qtyLeft:d,note:'Opening stock (CSV import)'}); v.qty+=d;
+          logEntry({type:'adjust',productId:p.id,variantId:v.id,sku:p.sku,name:p.name,size:v.size,delta:d,qtyAfter:v.qty,cost:r4(uc*d),note:'CSV import — opening stock'}); stock+=d; }
+        else if(d<0){ const c=consume(v,-d); logEntry({type:'adjust',productId:p.id,variantId:v.id,sku:p.sku,name:p.name,size:v.size,delta:d,qtyAfter:v.qty,cost:c,note:'CSV import'}); }
       }
     });
-    save(); renderAll(); toast(`Imported: ${added} added, ${updated} updated${skipped?`, ${skipped} skipped`:''}`);
+    save(); renderAll(); toast(`Imported: ${newP} new SKUs, ${newV} new sizes, ${stock} units added${skipped?`, ${skipped} rows skipped`:''}`);
   });
 }
 function renderSettings(){
   $('setCats').value=state.settings.categories.join('\n');
   $('setChannels').value=state.settings.channels.join('\n');
   $('setLow').value=state.settings.lowDefault;
+  KARATS.forEach(k=>{ const el=$('pur'+k); if(el && document.activeElement!==el) el.value=((state.settings.purity||{})[k]*100).toFixed(1); });
   $('lastBackupTxt').textContent=state.lastBackup?'Last backup: '+fmtTs(state.lastBackup):'No backup downloaded yet.';
 }
 function saveSettings(){
@@ -820,23 +1164,28 @@ function saveSettings(){
   state.settings.categories=lines($('setCats').value);
   state.settings.channels=lines($('setChannels').value); if(!state.settings.channels.length) state.settings.channels=['Other'];
   state.settings.lowDefault=Math.max(0,intv($('setLow').value));
-  save(); renderAll(); toast('Lists saved');
+  state.settings.purity=Object.fromEntries(KARATS.map(k=>[k, Math.min(1,Math.max(0,num($('pur'+k).value)/100))]));
+  save(); renderAll(); toast('Settings saved');
 }
 function wipeAll(){
-  confirmModal('Erase everything?','This deletes all items and history on every device. Download a backup first if you might need it.','Erase everything',()=>{
+  confirmModal('Erase everything?','This deletes all SKUs, purchases and history on every device. Download a backup first if you might need it.','Erase everything',()=>{
     const s=state.settings; state=structuredClone(DEFAULTS); state.settings=s; save(); renderAll(); toast('Everything erased');
   },true);
 }
 function renderBanner(){
   const b=$('backupBanner');
-  if(!storageOK){ b.classList.remove('hidden'); $('backupBannerText').textContent='This browser is blocking saving. Changes will be lost when you close the page — download a backup.'; return; }
   const days=state.lastBackup?(Date.now()-state.lastBackup)/864e5:Infinity;
-  const show=state.items.length>0 && days>7;
+  const show=state.products.length>0 && days>7;
   b.classList.toggle('hidden',!show);
   if(show) $('backupBannerText').textContent=state.lastBackup?`It's been ${Math.floor(days)} days since your last backup.`:'You haven\'t downloaded a backup yet.';
 }
 
-function renderAll(){ renderCatFilter(); renderInventory(); renderHistory(); renderSettings(); renderBanner(); }
+function renderAll(){
+  renderCatFilter(); renderInventory();
+  const ae=document.activeElement;
+  if(ae && ae.closest && ae.closest('#pBlocks')) renderPurchaseHistory(); else renderPurchases();
+  renderHistory(); renderSettings(); renderBanner();
+}
 
 renderAll();
 boot();
